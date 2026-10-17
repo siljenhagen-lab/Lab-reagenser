@@ -163,6 +163,18 @@ input,button,textarea{font-family:inherit;}
     </div>
   </div>
 
+  <!-- Lås (Admin og Oppsett) -->
+  <div id="page-lock" style="display:none;">
+    <div style="max-width:420px;margin:40px auto 0;background:#fff;border:1px solid #dbe1e6;border-radius:10px;box-shadow:0 1px 3px rgba(20,40,60,.07);padding:30px 26px;text-align:center;">
+      <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="#2f6076" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></svg>
+      <h1 style="margin:10px 0 4px;font-size:22px;font-weight:700;color:#16242c;">Admin og Oppsett er l&#229;st</h1>
+      <div style="font-size:13px;color:#5c6b73;margin-bottom:18px;">Skriv inn PIN-koden.</div>
+      <input class="set-input" id="lock-pin" type="password" inputmode="numeric" autocomplete="off" style="text-align:center;font-size:22px;letter-spacing:.3em;max-width:220px;" onkeydown="if(event.key==='Enter')tryUnlock()">
+      <div id="lock-msg" style="min-height:20px;font-size:12.5px;color:#c0392b;font-weight:600;margin:10px 0 6px;"></div>
+      <button class="tbtn" style="color:#fff;background:#2f6076;border-color:#2f6076;min-width:140px;" onclick="tryUnlock()">L&#229;s opp</button>
+    </div>
+  </div>
+
   <!-- Admin -->
   <div id="page-admin" style="display:none;">
     <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #dbe1e6;border-radius:10px;box-shadow:0 1px 3px rgba(20,40,60,.07);overflow:hidden;">
@@ -184,6 +196,20 @@ input,button,textarea{font-family:inherit;}
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px;">
           <button class="tbtn" style="color:#c0392b;border-color:#e6c3bf;" onclick="deleteUsed()">Slett brukte reagenser</button>
           <span id="admin-usedcount" style="font-size:12.5px;color:#5c6b73;"></span>
+        </div>
+      </div>
+      <div style="padding:20px 26px 24px;border-top:1px solid #e7ecef;display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div id="pin-heading" style="font-size:16px;font-weight:700;color:#16242c;flex:1;">PIN-kode</div>
+          <button id="pin-locknow" class="tbtn" style="padding:7px 12px;font-size:12px;" onclick="lockNow()">L&#229;s n&#229;</button>
+        </div>
+        <div id="pin-hint" class="set-hint" style="margin:0;"></div>
+        <div id="pin-old-wrap"><label class="set-label" for="pin-old">N&#229;v&#230;rende PIN-kode</label><input class="set-input" id="pin-old" type="password" inputmode="numeric" autocomplete="off"></div>
+        <div><label class="set-label" for="pin-new">Ny PIN-kode</label><input class="set-input" id="pin-new" type="password" inputmode="numeric" autocomplete="new-password"></div>
+        <div><label class="set-label" for="pin-new2">Gjenta ny PIN-kode</label><input class="set-input" id="pin-new2" type="password" inputmode="numeric" autocomplete="new-password"></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <button class="tbtn" style="color:#2f6076;border-color:#b9c7cf;" onclick="savePin()">Lagre PIN-kode</button>
+          <span id="pin-msg" style="font-size:12.5px;font-weight:600;"></span>
         </div>
       </div>
     </div>
@@ -321,10 +347,15 @@ async function saveSbSettings(){
 }
 
 // ── Faner ───────────────────────────────────────────────────────────────────
+var currentTab='reagenser';
 function showTab(name){
-  ['reagenser','lager','admin','oppsett'].forEach(function(t){document.getElementById('page-'+t).style.display=t===name?'':'none';});
+  currentTab=name;
+  var locked=(name==='admin'||name==='oppsett')&&isLocked();
+  ['reagenser','lager','admin','oppsett'].forEach(function(t){document.getElementById('page-'+t).style.display=(t===name&&!locked)?'':'none';});
+  document.getElementById('page-lock').style.display=locked?'':'none';
+  if(locked){document.getElementById('lock-pin').value='';document.getElementById('lock-msg').textContent='';setTimeout(function(){document.getElementById('lock-pin').focus();},50);}
   if(name==='lager')renderLager();
-  if(name==='admin')renderAdmin();
+  if(name==='admin'&&!locked)renderAdmin();
   hideAc();
   document.querySelectorAll('#tabbar .tab-btn').forEach(function(b){b.classList.toggle('active',b.dataset.tab===name);});
   window.scrollTo(0,0);
@@ -653,6 +684,7 @@ function usedRows(){
   });
 }
 function renderAdmin(){
+  renderPin();
   var le=lastExport();
   document.getElementById('admin-lastexport').textContent=le?'Sist eksportert '+fmtDateTime(le)+' på denne enheten':'Ikke eksportert på denne enheten ennå';
   var n=usedRows().length;
@@ -718,6 +750,7 @@ async function sbLoad(showAlert){
     rows=data.map(function(x){return emptyRow({id:x.id,parentId:x.parent_id||null,navn:x.navn||'',storage:x.storage==='rom'?'rom':'kjol',ventana:x.ventana||'',lot:x.lot||'',exp:x.exp||'',mDato:x.mDato||'',mSign:x.mSign||'',kDato:x.kDato||'',kSign:x.kSign||'',tDato:x.tDato||'',tSign:x.tSign||'',komm:x.komm||''});});
     persist();autoCollapse();renderTable();
     await sbLoadKatalog();
+    await sbLoadPin();
     setSbStatus('ok','Synkronisert');
     if(showAlert)setSbStatus('ok','Oppdatert ('+rows.length+' rader)');
     return true;
@@ -754,6 +787,89 @@ function debounceSbUpsert(row){
   clearTimeout(sbSyncTimer[row.id]);
   sbSyncTimer[row.id]=setTimeout(function(){sbUpsert(row);},800);
 }
+
+// ── PIN-kode for Admin og Oppsett ───────────────────────────────────────────
+// Koden lagres som saltet SHA-256 i Supabase-tabellen app_innstillinger (gjelder alle enheter),
+// med kopi lokalt. Uten Supabase gjelder den bare denne enheten.
+var PIN_KEY='labreagenser_pin',PIN_PENDING_KEY='labreagenser_pin_pending',SET_TABLE='app_innstillinger';
+var LOCK_AFTER_MS=15*60*1000;
+var unlocked=false,lastActivity=Date.now(),failCount=0,failUntil=0;
+function lsGet(k){try{return localStorage.getItem(k)||'';}catch(e){return'';}}
+function lsSet(k,v){try{if(v)localStorage.setItem(k,v);else localStorage.removeItem(k);}catch(e){}}
+function pinHash(){return lsGet(PIN_KEY);}
+function isLocked(){return !!pinHash()&&!unlocked;}
+async function sha256(txt){
+  var buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(txt));
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function makePinHash(pin){
+  var salt=Array.from(crypto.getRandomValues(new Uint8Array(8))).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return salt+':'+await sha256(salt+':'+pin);
+}
+async function checkPin(pin){
+  var st=pinHash().split(':');if(st.length!==2)return false;
+  return await sha256(st[0]+':'+pin)===st[1];
+}
+async function sbSetFetch(path,opts){
+  var c=sbCreds();
+  var r=await fetch(c.url+'/rest/v1/'+SET_TABLE+path,Object.assign({headers:sbHdr()},opts||{}));
+  if(!r.ok){var et=await r.text().catch(function(){return'';});var e=new Error('HTTP '+r.status);e.missing=r.status===404||/PGRST205|42P01/.test(et);throw e;}
+  return r;
+}
+async function sbUpsertPin(hash){
+  await sbSetFetch('',{method:'POST',headers:Object.assign({},sbHdr(),{'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify([{nokkel:'admin_pin',verdi:hash,updated_at:new Date().toISOString()}])});
+}
+// Databasen bestemmer. Slettes raden der, er koden nullstilt på alle enheter.
+async function sbLoadPin(){
+  if(!sbActive())return;
+  try{
+    var data=await (await sbSetFetch('?nokkel=eq.admin_pin&select=verdi')).json();
+    if(data.length){lsSet(PIN_KEY,data[0].verdi);lsSet(PIN_PENDING_KEY,'');}
+    else if(lsGet(PIN_PENDING_KEY)&&pinHash()){await sbUpsertPin(pinHash());lsSet(PIN_PENDING_KEY,'');}
+    else lsSet(PIN_KEY,'');
+  }catch(e){/* tabellen mangler eller nett nede: behold lokal kode */}
+  if((currentTab==='admin'||currentTab==='oppsett'))showTab(currentTab);
+}
+async function tryUnlock(){
+  var inp=document.getElementById('lock-pin'),msg=document.getElementById('lock-msg');
+  if(Date.now()<failUntil){msg.textContent='For mange feil. Vent '+Math.ceil((failUntil-Date.now())/1000)+' sekunder.';return;}
+  if(await checkPin(inp.value)){
+    unlocked=true;lastActivity=Date.now();failCount=0;showTab(currentTab);
+  }else{
+    failCount++;inp.value='';
+    if(failCount>=5){failUntil=Date.now()+30000;failCount=0;msg.textContent='For mange feil. Vent 30 sekunder.';}
+    else msg.textContent='Feil PIN-kode.';
+  }
+}
+function lockNow(){unlocked=false;if(currentTab==='admin'||currentTab==='oppsett')showTab(currentTab);}
+function renderPin(){
+  var has=!!pinHash();
+  document.getElementById('pin-heading').textContent=has?'Endre PIN-kode':'Sett PIN-kode';
+  document.getElementById('pin-old-wrap').style.display=has?'':'none';
+  document.getElementById('pin-locknow').style.display=has?'':'none';
+  document.getElementById('pin-hint').textContent=has
+    ?'Admin og Oppsett låses etter 15 minutter uten aktivitet, og når appen lukkes.'
+    :'Ingen PIN-kode er satt, så Admin og Oppsett er åpne for alle. Sett en kode på minst 4 tegn.';
+  ['pin-old','pin-new','pin-new2'].forEach(function(id){document.getElementById(id).value='';});
+}
+async function savePin(){
+  var msg=document.getElementById('pin-msg');
+  var say=function(t,ok){msg.textContent=t;msg.style.color=ok?'#2a7a52':'#c0392b';};
+  var o=document.getElementById('pin-old').value,n=document.getElementById('pin-new').value,n2=document.getElementById('pin-new2').value;
+  if(pinHash()&&!(await checkPin(o))){say('Nåværende PIN-kode er feil.');return;}
+  if(n.length<4){say('PIN-koden må ha minst 4 tegn.');return;}
+  if(n!==n2){say('De to nye kodene er ikke like.');return;}
+  var hash=await makePinHash(n);
+  lsSet(PIN_KEY,hash);unlocked=true;lastActivity=Date.now();
+  renderPin();
+  if(!sbActive()){say('Lagret. Gjelder bare denne enheten (ikke koblet til database).',true);return;}
+  try{await sbUpsertPin(hash);lsSet(PIN_PENDING_KEY,'');say('Lagret for alle enheter.',true);}
+  catch(e){lsSet(PIN_PENDING_KEY,'1');say(e.missing?'Lagret på denne enheten. Tabellen «'+SET_TABLE+'» mangler i Supabase (se supabase.sql).':'Lagret på denne enheten, men ikke i databasen ('+e.message+').',true);}
+}
+['pointerdown','keydown'].forEach(function(ev){document.addEventListener(ev,function(){lastActivity=Date.now();},true);});
+function checkIdle(){if(unlocked&&Date.now()-lastActivity>LOCK_AFTER_MS)lockNow();}
+setInterval(checkIdle,30000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)checkIdle();});
 
 // ── Lager / reagenskatalog ──────────────────────────────────────────────────
 var KKEY = 'labreagenser_katalog_v1';
