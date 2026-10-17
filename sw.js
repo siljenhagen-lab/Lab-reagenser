@@ -1,4 +1,4 @@
-const CACHE = 'labreagenser-v1';
+const CACHE = 'labreagenser-v4';
 
 const APP_SHELL = [
   './',
@@ -45,8 +45,8 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // App files: serve from cache, fall back to network
-  if (e.request.method !== 'GET') return;
+  // App files: serve from cache, fall back to network (never database or other external calls)
+  if (e.request.method !== 'GET' || url.origin !== self.location.origin) return;
   e.respondWith(
     caches.match(e.request).then(hit => hit || fetch(e.request).then(resp => {
       if (resp.ok) caches.open(CACHE).then(c => c.put(e.request, resp.clone()));
