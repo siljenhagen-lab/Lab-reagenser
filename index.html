@@ -50,6 +50,16 @@ input,button,textarea{font-family:inherit;}
 .set-input:focus{border-color:#2f6076;}
 .set-hint{font-size:11.5px;color:#7c8a91;margin-top:4px;}
 @media print{#tabbar{display:none!important;}}
+#ac-list{position:fixed;z-index:100;display:none;background:#fff;border:1px solid #c7d0d6;border-radius:8px;box-shadow:0 6px 18px rgba(20,40,60,.16);max-height:280px;overflow-y:auto;padding:4px 0;}
+.ac-item{padding:9px 12px;cursor:pointer;font-size:13.5px;color:#1b2227;}
+.ac-item small{display:block;font-size:11.5px;color:#7c8a91;margin-top:1px;}
+.ac-item.on,.ac-item:hover{background:#e3eef3;}
+.navn-warn{color:#c0392b!important;}
+.lg-item{display:flex;align-items:center;gap:12px;padding:13px 26px;border-bottom:1px solid #eef2f4;cursor:pointer;}
+.lg-item:hover{background:#f7fafb;}
+.lg-dots{display:flex;gap:9px;font-size:12.5px;color:#5c6b73;flex-wrap:wrap;justify-content:flex-end;}
+.lg-dots span{display:inline-flex;align-items:center;gap:4px;}
+.lg-dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
 </style>
 </head>
 <body>
@@ -123,6 +133,38 @@ input,button,textarea{font-family:inherit;}
   </div>
   </div>
 
+  <!-- Lager -->
+  <div id="page-lager" style="display:none;">
+    <div style="max-width:900px;margin:0 auto;background:#fff;border:1px solid #dbe1e6;border-radius:10px;box-shadow:0 1px 3px rgba(20,40,60,.07);overflow:hidden;">
+      <div style="padding:22px 26px;border-bottom:2px solid #2f6076;background:#f7fafb;">
+        <h1 style="margin:0 0 4px;font-size:24px;font-weight:700;letter-spacing:-.01em;color:#16242c;">Lager</h1>
+        <div style="font-size:12.5px;color:#5c6b73;">P&#229; lager = registrerte enheter uten dato i &laquo;Tatt i bruk&raquo;.</div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:16px 26px;border-bottom:1px solid #e7ecef;">
+        <button class="tbtn" style="color:#2f6076;border-color:#b9c7cf;" onclick="openKatForm()">+ Ny</button>
+        <input id="lager-search" type="search" placeholder="S&#248;k tittel / leverand&#248;r&#8230;" oninput="renderLager()" style="border:1px solid #c7d0d6;border-radius:8px;padding:9px 12px;font-size:13px;width:220px;outline:none;background:#fff;color:#1b2227;">
+        <div id="lager-total" style="font-size:12.5px;color:#5c6b73;"></div>
+      </div>
+      <div id="kat-status" style="display:none;padding:10px 26px;font-size:12.5px;background:#fdf7e9;color:#8a5a00;border-bottom:1px solid #f1e3bf;"></div>
+      <div id="kat-form" style="display:none;padding:18px 26px;border-bottom:1px solid #e7ecef;background:#f7fafb;">
+        <input type="hidden" id="kat-id">
+        <div style="display:flex;flex-direction:column;gap:12px;max-width:480px;">
+          <div><label class="set-label" for="kat-tittel">Tittel</label><input class="set-input" id="kat-tittel" placeholder="f.eks. anti-CD20" autocomplete="off"></div>
+          <div><label class="set-label" for="kat-lev">Leverand&#248;r</label><input class="set-input" id="kat-lev" autocomplete="off"></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="tbtn" style="color:#fff;background:#2f6076;border-color:#2f6076;" onclick="saveKat()">Lagre</button>
+            <button class="tbtn" onclick="closeKatForm()">Avbryt</button>
+            <div style="flex:1;"></div>
+            <button id="kat-del" class="tbtn" style="color:#c0392b;border-color:#e6c3bf;" onclick="deleteKat()">Slett</button>
+          </div>
+        </div>
+      </div>
+      <div id="lager-list"></div>
+      <div id="lager-empty" style="display:none;text-align:center;padding:44px 20px;color:#7c8a91;font-size:13.5px;"></div>
+      <div id="lager-uncat"></div>
+    </div>
+  </div>
+
   <!-- Oppsett -->
   <div id="page-oppsett" style="display:none;">
     <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #dbe1e6;border-radius:10px;box-shadow:0 1px 3px rgba(20,40,60,.07);overflow:hidden;">
@@ -164,11 +206,16 @@ input,button,textarea{font-family:inherit;}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v6.5L4.6 18.6A1.6 1.6 0 0 0 6 21h12a1.6 1.6 0 0 0 1.4-2.4L14 9.5V3"/><path d="M7.2 15h9.6"/></svg>
     Reagenser
   </button>
+  <button class="tab-btn" data-tab="lager" onclick="showTab('lager')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5"/><path d="M12 12v9"/></svg>
+    Lager
+  </button>
   <button class="tab-btn" data-tab="oppsett" onclick="showTab('oppsett')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h9"/><path d="M17 6h3"/><circle cx="15" cy="6" r="2"/><path d="M4 12h3"/><path d="M11 12h9"/><circle cx="9" cy="12" r="2"/><path d="M4 18h11"/><path d="M19 18h1"/><circle cx="17" cy="18" r="2"/></svg>
     Oppsett
   </button>
 </nav>
+<div id="ac-list" class="noprint"></div>
 
 <script>
 // ── Oppsett (standardverdier) ────────────────────────────────────────────────
@@ -230,7 +277,9 @@ async function saveSbSettings(){
 
 // ── Faner ───────────────────────────────────────────────────────────────────
 function showTab(name){
-  ['reagenser','oppsett'].forEach(function(t){document.getElementById('page-'+t).style.display=t===name?'':'none';});
+  ['reagenser','lager','oppsett'].forEach(function(t){document.getElementById('page-'+t).style.display=t===name?'':'none';});
+  if(name==='lager')renderLager();
+  hideAc();
   document.querySelectorAll('#tabbar .tab-btn').forEach(function(b){b.classList.toggle('active',b.dataset.tab===name);});
   window.scrollTo(0,0);
 }
@@ -311,7 +360,7 @@ function rowHtml(row,i,childCount,isCollapsed) {
       +'</div>'
     +'</td>'
     +'<td style="padding:5px 6px;border-bottom:1px solid #eef2f4;vertical-align:top;">'
-      +'<input class="cell-input" type="text" data-f="navn" value="'+h(row.navn)+'" placeholder="f.eks. anti-CD20">'
+      +'<input class="cell-input'+(navnWarn(row.navn)?' navn-warn':'')+'" type="text" data-f="navn" value="'+h(row.navn)+'" placeholder="'+(katalog.length?'Velg reagens&#8230;':'f.eks. anti-CD20')+'" autocomplete="off" title="'+(navnWarn(row.navn)?'Ikke i lagerlista':'')+'">'
     +'</td>'
     +'<td style="padding:5px 6px;border-bottom:1px solid #eef2f4;vertical-align:top;">'
       +'<div class="noprint" style="display:flex;gap:5px;padding-top:3px;">'
@@ -471,15 +520,16 @@ function addRow(extra,highlight){
 // Shared file
 function buildJson(){
   var c=rows.map(function(r){var x=Object.assign({},r);delete x._new;return x;});
-  return JSON.stringify({app:'farge-reagenser',savedAt:new Date().toISOString(),rows:c},null,2);
+  return JSON.stringify({app:'farge-reagenser',savedAt:new Date().toISOString(),rows:c,katalog:katalog},null,2);
 }
 function loadJson(txt,name){
   var data;try{data=JSON.parse(txt);}catch(e){alert('Fant ikke gyldig data i filen.');return;}
   var r=Array.isArray(data)?data:(data&&Array.isArray(data.rows)?data.rows:null);
   if(!r){alert('Filen inneholder ingen reagensliste.');return;}
   if(rows.length>0&&!confirm('Dette erstatter den lokale listen. Fortsette?'))return;
-  rows=r.map(function(x){var o={parentId:x.parentId||null,navn:x.navn||'',storage:x.storage==='rom'?'rom':'kjol',ventana:x.ventana||'',lot:x.lot||'',exp:x.exp||'',mDato:x.mDato||'',mSign:x.mSign||'',tDato:x.tDato||'',tSign:x.tSign||'',komm:x.komm||''};if(x.id)o.id=x.id;return emptyRow(o);});
-  persist();fileName=name||fileName;updateFileInd();renderTable();
+  rows=r.map(function(x){var o={parentId:x.parentId||null,navn:x.navn||'',storage:x.storage==='rom'?'rom':'kjol',ventana:x.ventana||'',lot:x.lot||'',exp:x.exp||'',mDato:x.mDato||'',mSign:x.mSign||'',kDato:x.kDato||'',kSign:x.kSign||'',tDato:x.tDato||'',tSign:x.tSign||'',komm:x.komm||''};if(x.id)o.id=x.id;return emptyRow(o);});
+  if(data&&Array.isArray(data.katalog)){katalog=data.katalog.map(katItem);persistKatalog();}
+  persist();fileName=name||fileName;updateFileInd();renderTable();renderLager();
 }
 async function saveToFile(){
   var json=buildJson();
@@ -559,6 +609,7 @@ async function sbLoad(showAlert){
     var data=await r.json();
     rows=data.map(function(x){return emptyRow({id:x.id,parentId:x.parent_id||null,navn:x.navn||'',storage:x.storage==='rom'?'rom':'kjol',ventana:x.ventana||'',lot:x.lot||'',exp:x.exp||'',mDato:x.mDato||'',mSign:x.mSign||'',kDato:x.kDato||'',kSign:x.kSign||'',tDato:x.tDato||'',tSign:x.tSign||'',komm:x.komm||''});});
     persist();autoCollapse();renderTable();
+    await sbLoadKatalog();
     setSbStatus('ok','Synkronisert');
     if(showAlert)setSbStatus('ok','Oppdatert ('+rows.length+' rader)');
     return true;
@@ -595,6 +646,203 @@ function debounceSbUpsert(row){
   clearTimeout(sbSyncTimer[row.id]);
   sbSyncTimer[row.id]=setTimeout(function(){sbUpsert(row);},800);
 }
+
+// ── Lager / reagenskatalog ──────────────────────────────────────────────────
+var KKEY = 'labreagenser_katalog_v1';
+var KAT_TABLE = 'reagens_katalog';
+var katalog = [];
+try{var kraw=localStorage.getItem(KKEY);katalog=kraw?JSON.parse(kraw).map(katItem):[];}catch(e){katalog=[];}
+
+function katItem(x){return{id:x.id||genId(),tittel:String(x.tittel||''),leverandor:String(x.leverandor||'')};}
+function norm(v){return String(v||'').trim().toLowerCase();}
+function persistKatalog(){try{localStorage.setItem(KKEY,JSON.stringify(katalog));}catch(e){}}
+function findKat(title){var n=norm(title);return katalog.find(function(k){return norm(k.tittel)===n;});}
+function navnWarn(v){return katalog.length>0&&norm(v)!==''&&!findKat(v);}
+function katSort(){katalog.sort(function(a,b){return a.tittel.localeCompare(b.tittel,'nb');});}
+function setKatStatus(msg){var el=document.getElementById('kat-status');el.textContent=msg||'';el.style.display=msg?'block':'none';}
+
+async function sbKatFetch(path,opts){
+  var c=sbCreds();
+  var r=await fetch(c.url+'/rest/v1/'+KAT_TABLE+path,Object.assign({headers:sbHdr()},opts||{}));
+  if(!r.ok){
+    var et=await r.text().catch(function(){return'';});
+    if(r.status===404||/PGRST205|42P01/.test(et))throw new Error('Tabellen \u00ab'+KAT_TABLE+'\u00bb finnes ikke i Supabase enn\u00e5. Lagerlista lagres bare p\u00e5 denne enheten til den er opprettet (se supabase.sql).');
+    throw new Error('Lagerlista kunne ikke synkroniseres (HTTP '+r.status+').');
+  }
+  return r;
+}
+async function sbLoadKatalog(){
+  if(!sbActive())return;
+  try{
+    var data=await (await sbKatFetch('?select=*&order=tittel.asc')).json();
+    if(!data.length&&katalog.length){katalog.forEach(sbUpsertKat);setKatStatus('');return;}
+    katalog=data.map(katItem);katSort();persistKatalog();setKatStatus('');
+    renderTable();renderLager();
+  }catch(e){setKatStatus(e.message);}
+}
+async function sbUpsertKat(item){
+  if(!sbActive())return;
+  try{
+    await sbKatFetch('',{method:'POST',headers:Object.assign({},sbHdr(),{'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify([{id:item.id,tittel:item.tittel,leverandor:item.leverandor,updated_at:new Date().toISOString()}])});
+    setKatStatus('');
+  }catch(e){setKatStatus(e.message);}
+}
+async function sbDeleteKat(id){
+  if(!sbActive())return;
+  try{await sbKatFetch('?id=eq.'+encodeURIComponent(id),{method:'DELETE'});setKatStatus('');}
+  catch(e){setKatStatus(e.message);}
+}
+
+// Beholdning: alle enheter (rad + underrader) uten «tatt i bruk»-dato, gruppert på tittel
+function stockByTitle(){
+  var byId={},map={};
+  rows.forEach(function(r){byId[r.id]=r;});
+  rows.forEach(function(r){
+    if(r.tDato)return;
+    var parent=r.parentId?byId[r.parentId]:null;
+    var title=parent?parent.navn:r.navn;
+    if(!norm(title))return;
+    var k=norm(title),st=expSt(r.exp).label;
+    var m=map[k]||(map[k]={title:String(title).trim(),total:0,red:0,yellow:0,green:0,none:0,first:''});
+    m.total++;
+    if(st==='Utløpt')m.red++;else if(st==='Utløper snart')m.yellow++;else if(st==='Gyldig')m.green++;else m.none++;
+    if(r.exp&&(!m.first||r.exp<m.first))m.first=r.exp;
+  });
+  return map;
+}
+function fmtDate(d){var p=String(d||'').split('-');return p.length===3?p[2]+'.'+p[1]+'.'+p[0]:d;}
+function lagerItemHtml(title,sub,m,attrs){
+  m=m||{total:0,red:0,yellow:0,green:0,none:0,first:''};
+  var worst=m.red?'#c0392b':m.yellow?'#cd8a00':m.green?'#3a8a5f':'#cdd6db';
+  var dots=[[m.red,'#c0392b','Utløpt'],[m.yellow,'#cd8a00','Utløper snart'],[m.green,'#3a8a5f','Gyldig'],[m.none,'#cdd6db','Ingen utløpsdato']]
+    .filter(function(d){return d[0];})
+    .map(function(d){return'<span title="'+d[2]+'"><span class="lg-dot" style="background:'+d[1]+';"></span>'+d[0]+'</span>';}).join('');
+  return '<div class="lg-item" '+attrs+'>'
+    +'<span class="lg-dot" style="width:11px;height:11px;flex:none;background:'+(m.total?worst:'#e3e9ec')+';"></span>'
+    +'<div style="flex:1;min-width:0;">'
+      +'<div style="font-size:14.5px;font-weight:700;color:#16242c;overflow-wrap:anywhere;">'+h(title)+'</div>'
+      +'<div style="font-size:12px;color:#7c8a91;margin-top:2px;">'+sub+(m.first?' &middot; F&#248;rste utl&#248;p '+h(fmtDate(m.first)):'')+'</div>'
+    +'</div>'
+    +'<div class="lg-dots">'+dots+'</div>'
+    +'<div style="text-align:right;min-width:54px;">'
+      +'<div style="font-size:22px;font-weight:700;line-height:1;color:'+(m.total?'#16242c':'#b9c2c8')+';">'+m.total+'</div>'
+      +'<div style="font-size:10.5px;color:#8a979e;margin-top:2px;">p&#229; lager</div>'
+    +'</div>'
+  +'</div>';
+}
+function renderLager(){
+  var list=document.getElementById('lager-list');if(!list)return;
+  var q=norm(document.getElementById('lager-search').value);
+  var stock=stockByTitle();
+  var items=katalog.filter(function(k){return !q||norm(k.tittel).includes(q)||norm(k.leverandor).includes(q);});
+  list.innerHTML=items.map(function(k){
+    return lagerItemHtml(k.tittel,k.leverandor?h(k.leverandor):'<i>Ingen leverand&#248;r</i>',stock[norm(k.tittel)],'data-kat="'+h(k.id)+'"');
+  }).join('');
+  var empty=document.getElementById('lager-empty');
+  empty.style.display=items.length?'none':'block';
+  empty.innerHTML=katalog.length?'Ingen treff.':'Lagerlista er tom. Trykk &laquo;+ Ny&raquo; for &aring; legge inn reagensene som bestilles.';
+  var unc=Object.keys(stock).filter(function(k){return !findKat(k)&&(!q||k.includes(q));}).map(function(k){return stock[k];});
+  document.getElementById('lager-uncat').innerHTML=unc.length
+    ?'<div style="padding:16px 26px 6px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#8a5a00;font-weight:700;border-top:1px solid #e7ecef;">Registrert under Reagenser, men ikke i lagerlista</div>'
+      +unc.map(function(m){return lagerItemHtml(m.title,'Trykk for &aring; legge til i lagerlista',m,'data-newkat="'+h(m.title)+'"');}).join('')
+    :'';
+  var tot=0;items.forEach(function(k){var m=stock[norm(k.tittel)];if(m)tot+=m.total;});
+  document.getElementById('lager-total').innerHTML=katalog.length?'<strong style="color:#1b2227;">'+katalog.length+'</strong> reagenser &middot; <strong style="color:#1b2227;">'+tot+'</strong> enheter p&#229; lager':'';
+}
+document.getElementById('page-lager').addEventListener('click',function(e){
+  var it=e.target.closest('.lg-item');if(!it)return;
+  if(it.dataset.kat)openKatForm(katalog.find(function(k){return k.id===it.dataset.kat;}));
+  else if(it.dataset.newkat)openKatForm(null,it.dataset.newkat);
+});
+function openKatForm(item,prefill){
+  document.getElementById('kat-id').value=item?item.id:'';
+  document.getElementById('kat-tittel').value=item?item.tittel:(prefill||'');
+  document.getElementById('kat-lev').value=item?item.leverandor:'';
+  document.getElementById('kat-del').style.display=item?'':'none';
+  document.getElementById('kat-form').style.display='block';
+  window.scrollTo(0,0);
+  document.getElementById(prefill?'kat-lev':'kat-tittel').focus();
+}
+function closeKatForm(){document.getElementById('kat-form').style.display='none';}
+function saveKat(){
+  var id=document.getElementById('kat-id').value;
+  var tittel=document.getElementById('kat-tittel').value.trim();
+  var lev=document.getElementById('kat-lev').value.trim();
+  if(!tittel){alert('Tittel m\u00e5 fylles ut.');return;}
+  var dup=findKat(tittel);
+  if(dup&&dup.id!==id){alert('\u00ab'+dup.tittel+'\u00bb finnes allerede i lagerlista.');return;}
+  var item=id&&katalog.find(function(k){return k.id===id;});
+  if(item){
+    var old=item.tittel;
+    if(old!==tittel){
+      var hits=rows.filter(function(r){return !r.parentId&&norm(r.navn)===norm(old);});
+      hits.forEach(function(r){r.navn=tittel;sbUpsert(r);});
+      if(hits.length)persist();
+    }
+    item.tittel=tittel;item.leverandor=lev;
+  }else{
+    item={id:genId(),tittel:tittel,leverandor:lev};katalog.push(item);
+  }
+  katSort();persistKatalog();sbUpsertKat(item);
+  closeKatForm();renderLager();renderTable();
+}
+function deleteKat(){
+  var id=document.getElementById('kat-id').value;
+  var item=katalog.find(function(k){return k.id===id;});if(!item)return;
+  if(!confirm('Slette \u00ab'+item.tittel+'\u00bb fra lagerlista? Registreringene under Reagenser blir ikke slettet.'))return;
+  katalog=katalog.filter(function(k){return k.id!==id;});
+  persistKatalog();sbDeleteKat(id);
+  closeKatForm();renderLager();renderTable();
+}
+
+// ── Velg reagens fra lagerlista (Navn / reagens) ─────────────────────────────
+var acInput=null,acIdx=-1,acMatches=[];
+function showAc(input){
+  acInput=input;
+  var q=norm(input.value);
+  acMatches=katalog.filter(function(k){return !q||norm(k.tittel).includes(q);})
+    .sort(function(a,b){return (norm(b.tittel).startsWith(q)?1:0)-(norm(a.tittel).startsWith(q)?1:0);}).slice(0,30);
+  var box=document.getElementById('ac-list');
+  if(!acMatches.length||(acMatches.length===1&&norm(acMatches[0].tittel)===q)){hideAc(true);return;}
+  acIdx=-1;
+  box.innerHTML=acMatches.map(function(k,i){return'<div class="ac-item" data-i="'+i+'">'+h(k.tittel)+(k.leverandor?'<small>'+h(k.leverandor)+'</small>':'')+'</div>';}).join('');
+  var r=input.getBoundingClientRect();
+  box.style.left=Math.max(8,Math.min(r.left,window.innerWidth-Math.max(r.width,240)-8))+'px';
+  box.style.top=(r.bottom+3)+'px';
+  box.style.width=Math.max(r.width,240)+'px';
+  box.style.maxHeight=Math.max(120,Math.min(280,window.innerHeight-r.bottom-90))+'px';
+  box.style.display='block';
+}
+function hideAc(keepInput){document.getElementById('ac-list').style.display='none';acIdx=-1;if(!keepInput)acInput=null;}
+function pickAc(i){
+  var k=acMatches[i],inp=acInput;if(!k||!inp)return;
+  inp.value=k.tittel;
+  inp.dispatchEvent(new Event('input',{bubbles:true}));
+  markNavn(inp);hideAc();
+}
+function markNavn(inp){var w=navnWarn(inp.value);inp.classList.toggle('navn-warn',w);inp.title=w?'Ikke i lagerlista':'';}
+function isNavn(el){return el&&el.dataset&&el.dataset.f==='navn';}
+var tb=document.getElementById('tbody');
+tb.addEventListener('focusin',function(e){if(isNavn(e.target))showAc(e.target);});
+tb.addEventListener('input',function(e){if(isNavn(e.target)){showAc(e.target);e.target.classList.remove('navn-warn');}});
+tb.addEventListener('focusout',function(e){if(isNavn(e.target)){markNavn(e.target);setTimeout(function(){if(document.activeElement!==acInput)hideAc();},150);}});
+tb.addEventListener('keydown',function(e){
+  if(!isNavn(e.target)||document.getElementById('ac-list').style.display!=='block')return;
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    e.preventDefault();
+    acIdx=(acIdx+(e.key==='ArrowDown'?1:-1)+acMatches.length)%acMatches.length;
+    document.querySelectorAll('#ac-list .ac-item').forEach(function(el,i){el.classList.toggle('on',i===acIdx);if(i===acIdx)el.scrollIntoView({block:'nearest'});});
+  }else if(e.key==='Enter'&&acIdx>=0){e.preventDefault();pickAc(acIdx);}
+  else if(e.key==='Escape'){hideAc();}
+});
+document.getElementById('ac-list').addEventListener('mousedown',function(e){e.preventDefault();});
+document.getElementById('ac-list').addEventListener('click',function(e){var it=e.target.closest('.ac-item');if(it)pickAc(+it.dataset.i);});
+function followAc(e){
+  if(!acInput||(e&&document.getElementById('ac-list').contains(e.target)))return;
+  if(document.activeElement===acInput)showAc(acInput);else hideAc();
+}
+document.addEventListener('scroll',followAc,true);
+window.addEventListener('resize',followAc);
 
 function updateSbBar(){
   var active=sbActive();
