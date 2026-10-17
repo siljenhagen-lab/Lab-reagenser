@@ -112,7 +112,7 @@ input,button,textarea{font-family:inherit;}
             <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;width:38px;">#</th>
             <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;min-width:170px;">Navn / reagens</th>
             <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;min-width:150px;">Oppbevaring</th>
-            <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;width:104px;">Ventana nr.</th>
+            <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;width:104px;" id="th-extra">Ventana nr.</th>
             <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;width:120px;">Lotnummer</th>
             <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;width:140px;">Forfallsdato</th>
             <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;min-width:150px;">Mottatt<br><span style="font-size:9.5px;font-style:italic;text-transform:none;font-weight:400;letter-spacing:0;color:#8a979e;">dato &middot; sign.</span></th>
@@ -178,6 +178,15 @@ input,button,textarea{font-family:inherit;}
         <div><label class="set-label" for="set-avdeling">Avdeling</label><input class="set-input" id="set-avdeling" data-key="avdeling"></div>
         <div><label class="set-label" for="set-seksjon">Seksjon</label><input class="set-input" id="set-seksjon" data-key="seksjon" placeholder="Reagens registreringer"><div class="set-hint">Vises som hovedtittel. Er feltet tomt, st&#229;r det &laquo;Reagens registreringer&raquo;.</div></div>
         <div><label class="set-label" for="set-enhet">Enhet</label><input class="set-input" id="set-enhet" data-key="enhet"></div>
+        <div style="border-top:1px solid #e7ecef;padding-top:16px;">
+          <div style="font-size:16px;font-weight:700;color:#16242c;margin-bottom:3px;">Valgfri info</div>
+          <div class="set-hint" style="margin:0 0 12px;">En ekstra kolonne p&#229; Reagenser, for eksempel Ventana nr.</div>
+          <label style="display:flex;align-items:center;gap:10px;font-size:14px;color:#1b2227;cursor:pointer;margin-bottom:12px;">
+            <input type="checkbox" id="set-extraon" onchange="onExtraToggle(this)" style="width:20px;height:20px;accent-color:#2f6076;margin:0;">
+            Vis kolonnen
+          </label>
+          <label class="set-label" for="set-extratitle">Kolonnetittel</label><input class="set-input" id="set-extratitle" data-key="extraTitle" placeholder="Valgfri info">
+        </div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px;">
           <button class="tbtn" onclick="resetSettings()">Tilbakestill</button>
           <span id="set-saved" style="font-size:12.5px;color:#3a8a5f;font-weight:600;opacity:0;transition:opacity .2s;">Lagret</span>
@@ -226,6 +235,8 @@ var DEFAULT_SETTINGS = {
   avdeling:     'Klinisk Patologi',
   seksjon:      '',
   enhet:        'Histologisk lab',
+  extraOn:      true,
+  extraTitle:   'Ventana nr.',
   sbUrl:        '',
   sbKey:        ''
 };
@@ -244,9 +255,15 @@ function applyIdentity(){
   document.getElementById('hdr-org').textContent=org.join(' · ');
   document.getElementById('hdr-seksjon').textContent=String(settings.seksjon||'').trim()||'Reagens registreringer';
   document.getElementById('hdr-enhet').textContent=settings.enhet||'';
+  var th=document.getElementById('th-extra');
+  th.textContent=extraTitle();th.style.display=settings.extraOn?'':'none';
+  document.getElementById('set-extratitle').disabled=!settings.extraOn;
 }
+function extraTitle(){return String(settings.extraTitle||'').trim()||'Valgfri info';}
+function onExtraToggle(el){settings.extraOn=el.checked;saveSettings();applyIdentity();renderTable();flashSaved();}
 function fillSettingsForm(){
   document.querySelectorAll('#page-oppsett .set-input[data-key]').forEach(function(el){el.value=settings[el.dataset.key]||'';});
+  document.getElementById('set-extraon').checked=!!settings.extraOn;
   document.getElementById('set-sburl').value=settings.sbUrl||'';
   document.getElementById('set-sbkey').value=settings.sbKey||'';
 }
@@ -261,7 +278,7 @@ document.querySelectorAll('#page-oppsett .set-input[data-key]').forEach(function
 function resetSettings(){
   if(!confirm('Tilbakestille oppsettet til standardverdiene?'))return;
   var sb={sbUrl:settings.sbUrl,sbKey:settings.sbKey};
-  settings=Object.assign({},DEFAULT_SETTINGS,sb);saveSettings();fillSettingsForm();applyIdentity();flashSaved();
+  settings=Object.assign({},DEFAULT_SETTINGS,sb);saveSettings();fillSettingsForm();applyIdentity();renderTable();flashSaved();
 }
 async function saveSbSettings(){
   settings.sbUrl=document.getElementById('set-sburl').value.trim();
@@ -369,9 +386,9 @@ function rowHtml(row,i,childCount,isCollapsed) {
       +'</div>'
       +'<div class="printonly" style="font-size:11px;">'+(row.storage==='kjol'?'Kjøleskap':'Romtemperatur')+'</div>'
     +'</td>'
-    +'<td style="padding:5px 6px;border-bottom:1px solid #eef2f4;vertical-align:top;">'
+    +(settings.extraOn?'<td style="padding:5px 6px;border-bottom:1px solid #eef2f4;vertical-align:top;">'
       +'<input class="cell-input" type="text" data-f="ventana" value="'+h(row.ventana)+'">'
-    +'</td>'
+    +'</td>':'')
     +'<td style="padding:5px 6px;border-bottom:1px solid #eef2f4;vertical-align:top;">'
       +'<input class="cell-input" type="text" data-f="lot" value="'+h(row.lot)+'" style="font-variant-numeric:tabular-nums;">'
     +'</td>'
@@ -418,13 +435,14 @@ function subRowHtml(row,ci) {
         +'<span class="dot" title="'+h(st.label)+'" style="width:8px;height:8px;border-radius:50%;display:inline-block;background:'+st.dot+';"></span>'
       +'</div>'
     +'</td>'
-    +'<td colspan="4" style="padding:5px 6px;border-bottom:1px solid #e8f0f4;border-left:3px solid #aacfde;background:#eaf4f8;"></td>'
+    +'<td colspan="'+(settings.extraOn?3:2)+'" style="padding:5px 6px;border-bottom:1px solid #e8f0f4;border-left:3px solid #aacfde;background:#eaf4f8;"></td>'
     +'<td style="padding:5px 6px;border-bottom:1px solid #e8f0f4;vertical-align:top;">'
       +'<input class="cell-input" type="text" data-f="lot" value="'+h(row.lot)+'" style="font-variant-numeric:tabular-nums;">'
     +'</td>'
     +'<td style="padding:5px 6px;border-bottom:1px solid #e8f0f4;vertical-align:top;">'
       +'<input class="date-input" type="date" data-f="exp" value="'+h(row.exp)+'">'
     +'</td>'
+    +'<td style="border-bottom:1px solid #e8f0f4;"></td>'
     +'<td style="padding:5px 6px;border-bottom:1px solid #e8f0f4;vertical-align:top;">'
       +'<div style="display:flex;flex-direction:column;gap:4px;">'
         +'<input class="date-input" type="date" data-f="kDato" value="'+h(row.kDato)+'">'
@@ -565,10 +583,11 @@ function updateFileInd(){
 
 // CSV
 function exportCsv(){
-  var head=['Navn/reagens','Oppbevaring','Ventana nr.','Lotnummer','Forfallsdato','Mottatt dato','Mottatt sign.','Kontrollert dato','Kontrollert sign.','Tatt i bruk dato','Tatt i bruk sign.','Kommentar'];
+  var ex=settings.extraOn;
+  var head=['Navn/reagens','Oppbevaring'].concat(ex?[extraTitle()]:[]).concat(['Lotnummer','Forfallsdato','Mottatt dato','Mottatt sign.','Kontrollert dato','Kontrollert sign.','Tatt i bruk dato','Tatt i bruk sign.','Kommentar']);
   var e2=function(v){return'"'+String(v==null?'':v).replace(/"/g,'""')+'"';};
   var lines=[head.map(e2).join(';')];
-  rows.forEach(function(r){lines.push([r.navn,r.storage==='kjol'?'Kjøleskap':'Romtemperatur',r.ventana,r.lot,r.exp,r.mDato,r.mSign,r.kDato,r.kSign,r.tDato,r.tSign,r.komm].map(e2).join(';'));});
+  rows.forEach(function(r){lines.push([r.navn,r.storage==='kjol'?'Kjøleskap':'Romtemperatur'].concat(ex?[r.ventana]:[]).concat([r.lot,r.exp,r.mDato,r.mSign,r.kDato,r.kSign,r.tDato,r.tSign,r.komm]).map(e2).join(';'));});
   var blob=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='reagenser-'+today()+'.csv';a.click();
   setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
