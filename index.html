@@ -2,10 +2,10 @@
 <html lang="no">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Lab reagenser</title>
 <link rel="manifest" href="./manifest.json">
-<link rel="apple-touch-icon" href="./icon.svg">
+<link rel="apple-touch-icon" href="./icon-180.png">
 <meta name="theme-color" content="#2f6076">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,6 +13,27 @@
 <style>
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;}
+html{touch-action:manipulation;-webkit-text-size-adjust:100%;}
+#app{min-height:100vh;padding:calc(28px + env(safe-area-inset-top)) calc(22px + env(safe-area-inset-right)) 110px calc(22px + env(safe-area-inset-left));}
+#login-screen{padding-top:calc(60px + env(safe-area-inset-top))!important;}
+/* Nettbrett: mindre marger, så tabellen får plass */
+@media (max-width:1300px){
+  #app{padding:calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) 110px calc(12px + env(safe-area-inset-left));}
+  .scroll-x{padding:4px 0 16px!important;}
+  .stk0{padding-left:12px!important;}
+}
+/* Første to kolonner (# og navn) blir stående når tabellen rulles sideveis */
+/* Minstebredder så tabellen ikke klemmer innholdet */
+.cell-input[data-f=navn]{min-width:140px;}
+.cell-input[data-f=ventana]{min-width:100px;}
+.cell-input[data-f=lot]{min-width:112px;}
+.cell-input[data-f=komm]{min-width:120px;}
+.date-input{min-width:128px;}
+.sign-input{min-width:100px;}
+.stk0,.stk1{position:sticky;z-index:2;background:inherit;}
+.stk0{left:0;}
+.stk1{left:var(--stk1,40px);box-shadow:inset -1px 0 0 #e3e9ec;}
+thead .stk0,thead .stk1{background:#fff;z-index:3;}
 body{background:#eef1f3;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;color:#1b2227;-webkit-font-smoothing:antialiased;}
 input,button,textarea{font-family:inherit;}
 .noprint{}
@@ -50,6 +71,20 @@ input,button,textarea{font-family:inherit;}
 .set-input:focus{border-color:#2f6076;}
 .set-hint{font-size:11.5px;color:#7c8a91;margin-top:4px;}
 @media print{#tabbar{display:none!important;}}
+/* Berøringsskjerm (nettbrett): større felt og knapper */
+@media (pointer:coarse){
+  .cell-input{font-size:15px;padding:10px 8px;}
+  .date-input{font-size:14px;padding:9px 6px;min-height:42px;}
+  .sign-input{font-size:14px;padding:8px 8px;min-height:38px;}
+  .seg-btn{font-size:13px;padding:9px 12px;}
+  .tbtn{min-height:44px;font-size:14px;}
+  .btn-del{font-size:20px;padding:10px 10px;}
+  .set-input{font-size:16px;padding:12px 14px;}
+  [data-collapse]{font-size:12px!important;padding:5px 8px!important;}
+  [data-addchild]{font-size:18px!important;padding:4px 11px!important;}
+  .ac-item{padding:12px 14px;font-size:15px;}
+  #search-input,#lager-search{font-size:15px!important;padding:11px 12px!important;}
+}
 #ac-list{position:fixed;z-index:100;display:none;background:#fff;border:1px solid #c7d0d6;border-radius:8px;box-shadow:0 6px 18px rgba(20,40,60,.16);max-height:280px;overflow-y:auto;padding:4px 0;}
 .ac-item{padding:9px 12px;cursor:pointer;font-size:13.5px;color:#1b2227;}
 .ac-item small{display:block;font-size:11.5px;color:#7c8a91;margin-top:1px;}
@@ -64,7 +99,7 @@ input,button,textarea{font-family:inherit;}
 </head>
 <body>
 
-<div id="app" style="min-height:100vh;padding:28px 22px 110px;">
+<div id="app">
   <div id="page-reagenser">
   <div id="sheet" style="max-width:1320px;margin:0 auto;background:#fff;border:1px solid #dbe1e6;border-radius:10px;box-shadow:0 1px 3px rgba(20,40,60,.07);overflow:hidden;">
 
@@ -104,20 +139,20 @@ input,button,textarea{font-family:inherit;}
 
     <!-- Table -->
     <div class="scroll-x" style="overflow-x:auto;padding:6px 18px 22px;">
-      <table style="width:100%;min-width:1340px;border-collapse:collapse;font-size:13px;">
+      <table id="reg-table" style="width:100%;border-collapse:collapse;font-size:13px;">
         <thead>
           <tr style="text-align:left;">
-            <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;width:38px;">#</th>
-            <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;min-width:170px;">Navn / reagens</th>
-            <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;min-width:150px;">Oppbevaring</th>
-            <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;width:104px;" id="th-extra">Ventana nr.</th>
-            <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;width:120px;">Lotnummer</th>
-            <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;width:140px;">Forfallsdato</th>
-            <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;min-width:150px;">Mottatt<br><span style="font-size:9.5px;font-style:italic;text-transform:none;font-weight:400;letter-spacing:0;color:#8a979e;">dato &middot; sign.</span></th>
-            <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;min-width:150px;">Kontrollert<br><span style="font-size:9.5px;font-style:italic;text-transform:none;font-weight:400;letter-spacing:0;color:#8a979e;">dato &middot; sign.</span></th>
-            <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;min-width:150px;">Tatt i bruk<br><span style="font-size:9.5px;font-style:italic;text-transform:none;font-weight:400;letter-spacing:0;color:#8a979e;">dato &middot; sign.</span></th>
-            <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;min-width:160px;">Kommentar</th>
-            <th class="noprint" style="padding:10px 8px;border-bottom:2px solid #cdd6db;width:34px;"></th>
+            <th class="stk0" style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;width:40px;">#</th>
+            <th class="stk1" style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;min-width:150px;">Navn / reagens</th>
+            <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;width:110px;">Oppbevaring</th>
+            <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;width:120px;" id="th-extra">Ventana nr.</th>
+            <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;width:130px;">Lotnummer</th>
+            <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;width:136px;">Forfallsdato</th>
+            <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;min-width:136px;">Mottatt<br><span style="font-size:9.5px;font-style:italic;text-transform:none;font-weight:400;letter-spacing:0;color:#8a979e;">dato &middot; sign.</span></th>
+            <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;min-width:136px;">Kontrollert<br><span style="font-size:9.5px;font-style:italic;text-transform:none;font-weight:400;letter-spacing:0;color:#8a979e;">dato &middot; sign.</span></th>
+            <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;min-width:136px;">Tatt i bruk<br><span style="font-size:9.5px;font-style:italic;text-transform:none;font-weight:400;letter-spacing:0;color:#8a979e;">dato &middot; sign.</span></th>
+            <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;min-width:130px;">Kommentar</th>
+            <th class="noprint" style="padding:10px 8px;border-bottom:2px solid #cdd6db;width:46px;"></th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -461,23 +496,25 @@ function renderTable() {
     });
     tbody.innerHTML=html;
   }
+  var th0=document.querySelector('#reg-table thead th');
+  if(th0&&th0.offsetWidth)document.documentElement.style.setProperty('--stk1',th0.offsetWidth+'px');
   renderStats();
 }
 function rowHtml(row,i,childCount,isCollapsed) {
   var st=expSt(row.exp),bg=rowBg(row,i),ch=childCount||0,coll=!!isCollapsed;
   return '<tr data-id="'+h(row.id)+'" style="background:'+bg+';transition:background .3s;">'
-    +'<td style="padding:9px 8px;border-bottom:1px solid #eef2f4;vertical-align:top;">'
+    +'<td class="stk0" style="padding:9px 8px;border-bottom:1px solid #eef2f4;vertical-align:top;">'
       +'<div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:6px;">'
         +'<span style="font-size:12px;color:#8a979e;font-weight:600;">'+(i+1)+'</span>'
         +(ch?'<button data-collapse="'+h(row.id)+'" style="background:#e3eef3;border:none;border-radius:4px;padding:2px 5px;font-size:10px;color:#2f6076;font-weight:700;cursor:pointer;white-space:nowrap;line-height:1.5;">'+(coll?'&#9654;':'&#9660;')+' '+ch+'</button>':'')
         +'<span class="dot" title="'+h(st.label)+'" style="width:9px;height:9px;border-radius:50%;display:inline-block;background:'+st.dot+';"></span>'
       +'</div>'
     +'</td>'
-    +'<td style="padding:5px 6px;border-bottom:1px solid #eef2f4;vertical-align:top;">'
+    +'<td class="stk1" style="padding:5px 6px;border-bottom:1px solid #eef2f4;vertical-align:top;">'
       +'<input class="cell-input'+(navnWarn(row.navn)?' navn-warn':'')+'" type="text" data-f="navn" value="'+h(row.navn)+'" placeholder="'+(katalog.length?'Velg reagens&#8230;':'f.eks. anti-CD20')+'" autocomplete="off" title="'+(navnWarn(row.navn)?'Ikke i lagerlista':'')+'">'
     +'</td>'
     +'<td style="padding:5px 6px;border-bottom:1px solid #eef2f4;vertical-align:top;">'
-      +'<div class="noprint" style="display:flex;gap:5px;padding-top:3px;">'
+      +'<div class="noprint" style="display:flex;flex-direction:column;align-items:flex-start;gap:5px;padding-top:3px;">'
         +'<button class="seg-btn '+(row.storage==='kjol'?'on':'off')+'" data-s="kjol">Kjøleskap</button>'
         +'<button class="seg-btn '+(row.storage==='rom'?'on':'off')+'" data-s="rom">Romtemp.</button>'
       +'</div>'
@@ -525,14 +562,15 @@ function subRowHtml(row,ci) {
   var st=expSt(row.exp);
   var bg=row._new?'#e7f4ec':(expSt(row.exp).tint||'#f2f8fb');
   return '<tr data-id="'+h(row.id)+'" data-child="1" style="background:'+bg+';transition:background .3s;">'
-    +'<td style="padding:9px 8px;border-bottom:1px solid #e8f0f4;vertical-align:top;">'
+    +'<td class="stk0" style="padding:9px 8px;border-bottom:1px solid #e8f0f4;vertical-align:top;">'
       +'<div style="display:flex;flex-direction:column;align-items:center;gap:3px;padding-top:5px;">'
         +'<span style="color:#85afc0;font-size:14px;line-height:1;">&#8627;</span>'
         +'<span style="font-size:11px;color:#85afc0;font-weight:600;">'+(ci+1)+'</span>'
         +'<span class="dot" title="'+h(st.label)+'" style="width:8px;height:8px;border-radius:50%;display:inline-block;background:'+st.dot+';"></span>'
       +'</div>'
     +'</td>'
-    +'<td colspan="'+(settings.extraOn?3:2)+'" style="padding:5px 6px;border-bottom:1px solid #e8f0f4;border-left:3px solid #aacfde;background:#eaf4f8;"></td>'
+    +'<td class="stk1" style="padding:5px 6px;border-bottom:1px solid #e8f0f4;box-shadow:inset 3px 0 0 #aacfde,inset -1px 0 0 #e3e9ec;background:#eaf4f8;"></td>'
+    +'<td colspan="'+(settings.extraOn?2:1)+'" style="padding:5px 6px;border-bottom:1px solid #e8f0f4;background:#eaf4f8;"></td>'
     +'<td style="padding:5px 6px;border-bottom:1px solid #e8f0f4;vertical-align:top;">'
       +'<input class="cell-input" type="text" data-f="lot" value="'+h(row.lot)+'" style="font-variant-numeric:tabular-nums;">'
     +'</td>'
@@ -604,7 +642,8 @@ document.getElementById('tbody').addEventListener('click',function(e){
     if(pt)pt.textContent=row.storage==='kjol'?'Kj\xf8leskap':'Romtemperatur';
   } else if(e.target.dataset.del){
     var children=rows.filter(function(c){return c.parentId===row.id;});
-    if(children.length&&!confirm('Slett denne raden og '+children.length+' underrad'+(children.length>1?'er':'')+'?'))return;
+    if(children.length){if(!confirm('Slett denne raden og '+children.length+' underrad'+(children.length>1?'er':'')+'?'))return;}
+    else if(['navn','ventana','lot','exp','mDato','mSign','kDato','kSign','tDato','tSign','komm'].some(function(f){return row[f];})&&!confirm('Slette '+(row.parentId?'denne underraden':'raden'+(row.navn?' \u00ab'+row.navn+'\u00bb':''))+'?'))return;
     var toDelete=[row.id].concat(children.map(function(c){return c.id;}));
     toDelete.forEach(function(did){sbDelete(did);});
     rows=rows.filter(function(r){return toDelete.indexOf(r.id)<0;});
