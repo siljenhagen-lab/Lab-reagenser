@@ -1,7 +1,7 @@
 {
-  "name": "Reagenser UNN",
-  "short_name": "Reagenser UNN",
-  "description": "Reagens registreringer – UNN Klinisk Patologi",
+  "name": "Lab reagenser",
+  "short_name": "Lab reagenser",
+  "description": "Registrering og lageroversikt for reagenser i laboratoriet",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

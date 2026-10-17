@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Reagenser UNN</title>
+<title>Lab reagenser</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icon.svg">
 <meta name="theme-color" content="#2f6076">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Reagenser UNN">
+<meta name="apple-mobile-web-app-title" content="Lab reagenser">
 <style>
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;}
@@ -97,8 +97,6 @@ input,button,textarea{font-family:inherit;}
       <div style="flex:1;"></div>
       <input id="search-input" type="search" placeholder="S&#248;k navn / lot&#8230;" oninput="onSearch(this.value)" style="border:1px solid #c7d0d6;border-radius:8px;padding:9px 12px;font-size:13px;width:190px;outline:none;background:#fff;color:#1b2227;" onfocus="this.style.borderColor='#2f6076'" onblur="this.style.borderColor='#c7d0d6'">
       <div id="stats" style="display:flex;gap:14px;align-items:center;font-size:12.5px;color:#5c6b73;margin-right:4px;"></div>
-      <button class="tbtn" onclick="exportCsv()">Eksporter CSV</button>
-      <button class="tbtn" onclick="window.print()">Skriv ut / PDF</button>
     </div>
 
     <!-- Print meta -->
@@ -165,6 +163,32 @@ input,button,textarea{font-family:inherit;}
     </div>
   </div>
 
+  <!-- Admin -->
+  <div id="page-admin" style="display:none;">
+    <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #dbe1e6;border-radius:10px;box-shadow:0 1px 3px rgba(20,40,60,.07);overflow:hidden;">
+      <div style="padding:22px 26px;border-bottom:2px solid #2f6076;background:#f7fafb;">
+        <h1 style="margin:0 0 4px;font-size:24px;font-weight:700;letter-spacing:-.01em;color:#16242c;">Admin</h1>
+        <div style="font-size:12.5px;color:#5c6b73;">Eksport og opprydding for bestillingsansvarlig.</div>
+      </div>
+      <div style="padding:22px 26px;display:flex;flex-direction:column;gap:10px;">
+        <div style="font-size:16px;font-weight:700;color:#16242c;">1. Eksporter data</div>
+        <div class="set-hint" style="margin:0;">&Eacute;n CSV-fil med alle registreringer fra Reagenser og lagerlista med beholdning fra Lager. Kan &aring;pnes i Excel.</div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px;">
+          <button class="tbtn" style="color:#2f6076;border-color:#b9c7cf;" onclick="exportCsv()">Eksporter CSV</button>
+          <span id="admin-lastexport" style="font-size:12.5px;color:#5c6b73;"></span>
+        </div>
+      </div>
+      <div style="padding:20px 26px 24px;border-top:1px solid #e7ecef;display:flex;flex-direction:column;gap:10px;">
+        <div style="font-size:16px;font-weight:700;color:#16242c;">2. Slett brukte reagenser</div>
+        <div class="set-hint" style="margin:0;">Sletter alle rader og glass som har dato i &laquo;Tatt i bruk&raquo;. En hovedrad som er tatt i bruk, beholdes s&aring; lenge den har glass som ikke er tatt i bruk. Kan ikke angres.</div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px;">
+          <button class="tbtn" style="color:#c0392b;border-color:#e6c3bf;" onclick="deleteUsed()">Slett brukte reagenser</button>
+          <span id="admin-usedcount" style="font-size:12.5px;color:#5c6b73;"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Oppsett -->
   <div id="page-oppsett" style="display:none;">
     <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #dbe1e6;border-radius:10px;box-shadow:0 1px 3px rgba(20,40,60,.07);overflow:hidden;">
@@ -218,6 +242,10 @@ input,button,textarea{font-family:inherit;}
   <button class="tab-btn" data-tab="lager" onclick="showTab('lager')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5"/><path d="M12 12v9"/></svg>
     Lager
+  </button>
+  <button class="tab-btn" data-tab="admin" onclick="showTab('admin')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.2 7.5 9.5 4.3-1.3 7.5-4.9 7.5-9.5V6z"/><path d="m8.8 12 2.3 2.3 4.3-4.6"/></svg>
+    Admin
   </button>
   <button class="tab-btn" data-tab="oppsett" onclick="showTab('oppsett')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h9"/><path d="M17 6h3"/><circle cx="15" cy="6" r="2"/><path d="M4 12h3"/><path d="M11 12h9"/><circle cx="9" cy="12" r="2"/><path d="M4 18h11"/><path d="M19 18h1"/><circle cx="17" cy="18" r="2"/></svg>
@@ -294,8 +322,9 @@ async function saveSbSettings(){
 
 // ── Faner ───────────────────────────────────────────────────────────────────
 function showTab(name){
-  ['reagenser','lager','oppsett'].forEach(function(t){document.getElementById('page-'+t).style.display=t===name?'':'none';});
+  ['reagenser','lager','admin','oppsett'].forEach(function(t){document.getElementById('page-'+t).style.display=t===name?'':'none';});
   if(name==='lager')renderLager();
+  if(name==='admin')renderAdmin();
   hideAc();
   document.querySelectorAll('#tabbar .tab-btn').forEach(function(b){b.classList.toggle('active',b.dataset.tab===name);});
   window.scrollTo(0,0);
@@ -538,7 +567,7 @@ function addRow(extra,highlight){
 // Shared file
 function buildJson(){
   var c=rows.map(function(r){var x=Object.assign({},r);delete x._new;return x;});
-  return JSON.stringify({app:'farge-reagenser',savedAt:new Date().toISOString(),rows:c,katalog:katalog},null,2);
+  return JSON.stringify({app:'lab-reagenser',savedAt:new Date().toISOString(),rows:c,katalog:katalog},null,2);
 }
 function loadJson(txt,name){
   var data;try{data=JSON.parse(txt);}catch(e){alert('Fant ikke gyldig data i filen.');return;}
@@ -554,13 +583,13 @@ async function saveToFile(){
   try{
     if(fileHandle&&fileHandle.createWritable){var w=await fileHandle.createWritable();await w.write(json);await w.close();return;}
     if(window.showSaveFilePicker){
-      var hh=await window.showSaveFilePicker({suggestedName:'farge-reagenser.json',types:[{description:'JSON',accept:{'application/json':['.json']}}]});
+      var hh=await window.showSaveFilePicker({suggestedName:'lab-reagenser.json',types:[{description:'JSON',accept:{'application/json':['.json']}}]});
       fileHandle=hh;var w2=await hh.createWritable();await w2.write(json);await w2.close();
       fileName=hh.name;updateFileInd();return;
     }
   }catch(e){if(e&&e.name==='AbortError')return;}
   var blob=new Blob([json],{type:'application/json'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='farge-reagenser.json';a.click();
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='lab-reagenser.json';a.click();
   setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
 }
 async function openFromFile(){
@@ -581,16 +610,76 @@ function updateFileInd(){
   if(fileName){nm.textContent=fileName;el.style.display='inline-flex';}else{el.style.display='none';}
 }
 
-// CSV
+// CSV (Admin): Reagenser + Lager i én fil
+var LAST_EXPORT_KEY='labreagenser_last_export';
 function exportCsv(){
-  var ex=settings.extraOn;
-  var head=['Navn/reagens','Oppbevaring'].concat(ex?[extraTitle()]:[]).concat(['Lotnummer','Forfallsdato','Mottatt dato','Mottatt sign.','Kontrollert dato','Kontrollert sign.','Tatt i bruk dato','Tatt i bruk sign.','Kommentar']);
   var e2=function(v){return'"'+String(v==null?'':v).replace(/"/g,'""')+'"';};
-  var lines=[head.map(e2).join(';')];
-  rows.forEach(function(r){lines.push([r.navn,r.storage==='kjol'?'Kjøleskap':'Romtemperatur'].concat(ex?[r.ventana]:[]).concat([r.lot,r.exp,r.mDato,r.mSign,r.kDato,r.kSign,r.tDato,r.tSign,r.komm]).map(e2).join(';'));});
-  var blob=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='reagenser-'+today()+'.csv';a.click();
+  var line=function(arr){return arr.map(e2).join(';');};
+  var ex=settings.extraOn,byId={};
+  rows.forEach(function(r){byId[r.id]=r;});
+  var lines=['"REAGENSER"'];
+  lines.push(line(['Navn/reagens','Rad','Leverandør','Oppbevaring'].concat(ex?[extraTitle()]:[]).concat(['Lotnummer','Forfallsdato','Status','Mottatt dato','Mottatt sign.','Kontrollert dato','Kontrollert sign.','Tatt i bruk dato','Tatt i bruk sign.','Kommentar'])));
+  var order=[];
+  rows.filter(function(r){return !r.parentId;}).forEach(function(r){order.push(r);rows.forEach(function(c){if(c.parentId===r.id)order.push(c);});});
+  rows.forEach(function(r){if(r.parentId&&!byId[r.parentId])order.push(r);});
+  order.forEach(function(r){
+    var parent=r.parentId?byId[r.parentId]:null,top=parent||r,k=findKat(top.navn);
+    lines.push(line([top.navn,parent?'Glass':'Hovedrad',k?k.leverandor:'',top.storage==='kjol'?'Kjøleskap':'Romtemperatur'].concat(ex?[top.ventana]:[]).concat([r.lot,r.exp,expSt(r.exp).label,r.mDato,r.mSign,r.kDato,r.kSign,r.tDato,r.tSign,r.komm])));
+  });
+  lines.push('','"LAGER"');
+  lines.push(line(['Tittel','Leverandør','På lager','Utløpt','Utløper snart','Gyldig','Ingen utløpsdato','Første utløp','I lagerlista']));
+  var stock=stockByTitle();
+  katalog.forEach(function(k){
+    var m=stock[norm(k.tittel)]||{total:0,red:0,yellow:0,green:0,none:0,first:''};
+    lines.push(line([k.tittel,k.leverandor,m.total,m.red,m.yellow,m.green,m.none,m.first,'Ja']));
+  });
+  Object.keys(stock).filter(function(t){return !findKat(t);}).forEach(function(t){
+    var m=stock[t];lines.push(line([m.title,'',m.total,m.red,m.yellow,m.green,m.none,m.first,'Nei']));
+  });
+  var blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='lab-reagenser-'+today()+'.csv';a.click();
   setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
+  try{localStorage.setItem(LAST_EXPORT_KEY,new Date().toISOString());}catch(e){}
+  renderAdmin();
+}
+function lastExport(){try{return localStorage.getItem(LAST_EXPORT_KEY)||'';}catch(e){return'';}}
+function fmtDateTime(iso){var d=new Date(iso);return isNaN(d)?'':d.toLocaleString('nb-NO',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}
+// Brukte: alle med «tatt i bruk»-dato, men en hovedrad beholdes så lenge den har glass som ikke er tatt i bruk
+function usedRows(){
+  return rows.filter(function(r){
+    if(!r.tDato)return false;
+    if(r.parentId)return true;
+    return !rows.some(function(c){return c.parentId===r.id&&!c.tDato;});
+  });
+}
+function renderAdmin(){
+  var le=lastExport();
+  document.getElementById('admin-lastexport').textContent=le?'Sist eksportert '+fmtDateTime(le)+' på denne enheten':'Ikke eksportert på denne enheten ennå';
+  var n=usedRows().length;
+  document.getElementById('admin-usedcount').textContent=n?n+' brukte registreringer':'Ingen brukte registreringer';
+}
+async function deleteUsed(){
+  var used=usedRows();
+  if(!used.length){alert('Det finnes ingen brukte reagenser å slette.');return;}
+  var le=lastExport();
+  if(!confirm('Har du husket å eksportere data?\n\n'+(le?'Sist eksportert: '+fmtDateTime(le)+' (denne enheten).':'Data er ikke eksportert fra denne enheten.')+'\n\nDette sletter '+used.length+' brukte registreringer for godt, også fra databasen. Det kan ikke angres.\n\nTrykk OK for å slette.'))return;
+  var ids=used.map(function(r){return r.id;});
+  rows=rows.filter(function(r){return ids.indexOf(r.id)<0;});
+  persist();renderTable();renderLager();renderAdmin();
+  await sbDeleteMany(ids);
+}
+async function sbDeleteMany(ids){
+  if(!sbActive()||!ids.length)return;
+  var c=sbCreds();
+  setSbStatus('syncing','Sletter\u2026');
+  try{
+    for(var i=0;i<ids.length;i+=100){
+      var chunk=ids.slice(i,i+100).map(function(id){return'"'+String(id).replace(/"/g,'')+'"';}).join(',');
+      var r=await fetch(c.url+'/rest/v1/reagenser?id=in.('+encodeURIComponent(chunk)+')',{method:'DELETE',headers:sbHdr()});
+      if(!r.ok){var et=await r.text().catch(function(){return'';});throw new Error('HTTP '+r.status+(et?' – '+et.slice(0,120):''));}
+    }
+    setSbStatus('ok','Synkronisert');
+  }catch(e){console.error('sbDeleteMany feil:',e);setSbStatus('error','Lagringsfeil ('+e.message+')');alert('Radene ble slettet her, men ikke i databasen: '+e.message);}
 }
 
 function onSearch(v){searchQuery=v.trim();renderTable();}
