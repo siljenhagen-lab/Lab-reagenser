@@ -200,6 +200,21 @@ input,button,textarea{font-family:inherit;}
       </div>
       <div style="padding:20px 26px 24px;border-top:1px solid #e7ecef;display:flex;flex-direction:column;gap:12px;">
         <div style="display:flex;align-items:center;gap:10px;">
+          <div style="font-size:16px;font-weight:700;color:#16242c;flex:1;">Innlogging p&#229; denne enheten</div>
+          <button id="login-logout" class="tbtn" style="padding:7px 12px;font-size:12px;" onclick="logout()">Logg ut</button>
+        </div>
+        <div id="login-hint" class="set-hint" style="margin:0;"></div>
+        <div><label class="set-label" for="login-newuser">Brukernavn</label><input class="set-input" id="login-newuser" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+        <div><label class="set-label" for="login-new">Passord</label><input class="set-input" id="login-new" type="password" autocomplete="new-password"></div>
+        <div><label class="set-label" for="login-new2">Gjenta passord</label><input class="set-input" id="login-new2" type="password" autocomplete="new-password"></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <button class="tbtn" style="color:#2f6076;border-color:#b9c7cf;" onclick="saveLogin()">Lagre innlogging</button>
+          <button id="login-remove" class="tbtn" style="color:#c0392b;border-color:#e6c3bf;" onclick="removeLogin()">Fjern innlogging</button>
+          <span id="login-savemsg" style="font-size:12.5px;font-weight:600;"></span>
+        </div>
+      </div>
+      <div style="padding:20px 26px 24px;border-top:1px solid #e7ecef;display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;align-items:center;gap:10px;">
           <div id="pin-heading" style="font-size:16px;font-weight:700;color:#16242c;flex:1;">PIN-kode</div>
           <button id="pin-locknow" class="tbtn" style="padding:7px 12px;font-size:12px;" onclick="lockNow()">L&#229;s n&#229;</button>
         </div>
@@ -279,6 +294,28 @@ input,button,textarea{font-family:inherit;}
   </button>
 </nav>
 <div id="ac-list" class="noprint"></div>
+
+<!-- Innlogging (gjelder denne enheten) -->
+<div id="login-screen" style="display:none;position:fixed;inset:0;z-index:200;background:#eef1f3;overflow-y:auto;padding:60px 22px;">
+  <div style="max-width:380px;margin:0 auto;background:#fff;border:1px solid #dbe1e6;border-radius:10px;box-shadow:0 1px 3px rgba(20,40,60,.07);padding:30px 26px;">
+    <div style="text-align:center;margin-bottom:18px;">
+      <img src="./icon.svg" alt="" width="56" height="56">
+      <h1 style="margin:8px 0 2px;font-size:22px;font-weight:700;color:#16242c;">Lab reagenser</h1>
+      <div id="login-sub" style="font-size:13px;color:#5c6b73;">Logg inn for &#229; fortsette.</div>
+    </div>
+    <div id="login-form" style="display:flex;flex-direction:column;gap:12px;">
+      <div><label class="set-label" for="login-user">Brukernavn</label><input class="set-input" id="login-user" autocomplete="username" autocapitalize="off" spellcheck="false"></div>
+      <div><label class="set-label" for="login-pass">Passord</label><input class="set-input" id="login-pass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')tryLogin()"></div>
+    </div>
+    <div id="login-pinform" style="display:none;">
+      <label class="set-label" for="login-pin">PIN-kode for Admin</label>
+      <input class="set-input" id="login-pin" type="password" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')tryLogin()">
+    </div>
+    <div id="login-msg" style="min-height:20px;font-size:12.5px;color:#c0392b;font-weight:600;margin:10px 0 6px;text-align:center;"></div>
+    <button class="tbtn" style="width:100%;color:#fff;background:#2f6076;border-color:#2f6076;" onclick="tryLogin()">Logg inn</button>
+    <div style="text-align:center;margin-top:14px;"><a href="#" id="login-toggle" onclick="toggleForgot();return false;" style="font-size:12.5px;color:#2f6076;">Glemt passord?</a></div>
+  </div>
+</div>
 
 <script>
 // ── Oppsett (standardverdier) ────────────────────────────────────────────────
@@ -684,7 +721,7 @@ function usedRows(){
   });
 }
 function renderAdmin(){
-  renderPin();
+  renderPin();renderLogin();
   var le=lastExport();
   document.getElementById('admin-lastexport').textContent=le?'Sist eksportert '+fmtDateTime(le)+' på denne enheten':'Ikke eksportert på denne enheten ennå';
   var n=usedRows().length;
@@ -870,6 +907,72 @@ async function savePin(){
 function checkIdle(){if(unlocked&&Date.now()-lastActivity>LOCK_AFTER_MS)lockNow();}
 setInterval(checkIdle,30000);
 document.addEventListener('visibilitychange',function(){if(!document.hidden)checkIdle();});
+
+// ── Innlogging (lagres bare på denne enheten) ───────────────────────────────
+var LOGIN_KEY='labreagenser_login',LOGIN_SESSION_KEY='labreagenser_loggedin';
+var forgotMode=false;
+function loginCfg(){try{var c=JSON.parse(lsGet(LOGIN_KEY)||'null');return c&&c.user&&c.hash?c:null;}catch(e){return null;}}
+function loggedIn(){try{return sessionStorage.getItem(LOGIN_SESSION_KEY)==='1';}catch(e){return false;}}
+function setLoggedIn(v){try{if(v)sessionStorage.setItem(LOGIN_SESSION_KEY,'1');else sessionStorage.removeItem(LOGIN_SESSION_KEY);}catch(e){}}
+async function checkHash(stored,secret){var st=String(stored||'').split(':');return st.length===2&&await sha256(st[0]+':'+secret)===st[1];}
+function showLoginIfNeeded(){
+  var need=!!loginCfg()&&!loggedIn();
+  document.getElementById('login-screen').style.display=need?'block':'none';
+  if(need){forgotMode=true;toggleForgot();setTimeout(function(){document.getElementById('login-user').focus();},50);}
+}
+function toggleForgot(){
+  forgotMode=!forgotMode;
+  var hasPin=!!pinHash();
+  document.getElementById('login-form').style.display=forgotMode?'none':'flex';
+  document.getElementById('login-pinform').style.display=forgotMode?'block':'none';
+  document.getElementById('login-sub').textContent=forgotMode?'Skriv PIN-koden for Admin. Da kan du endre eller fjerne innloggingen under Admin.':'Logg inn for å fortsette.';
+  document.getElementById('login-toggle').textContent=forgotMode?'Tilbake til innlogging':'Glemt passord?';
+  document.getElementById('login-toggle').style.display=(hasPin||forgotMode)?'':'none';
+  document.getElementById('login-msg').textContent='';
+  ['login-pass','login-pin'].forEach(function(id){document.getElementById(id).value='';});
+}
+async function tryLogin(){
+  var msg=document.getElementById('login-msg');
+  if(Date.now()<failUntil){msg.textContent='For mange feil. Vent '+Math.ceil((failUntil-Date.now())/1000)+' sekunder.';return;}
+  var ok;
+  if(forgotMode){ok=!!pinHash()&&await checkPin(document.getElementById('login-pin').value);}
+  else{var c=loginCfg();ok=!!c&&norm(document.getElementById('login-user').value)===norm(c.user)&&await checkHash(c.hash,document.getElementById('login-pass').value);}
+  if(ok){
+    failCount=0;setLoggedIn(true);
+    document.getElementById('login-screen').style.display='none';
+    if(forgotMode){unlocked=true;lastActivity=Date.now();showTab('admin');}
+  }else{
+    failCount++;
+    if(failCount>=5){failUntil=Date.now()+30000;failCount=0;msg.textContent='For mange feil. Vent 30 sekunder.';}
+    else msg.textContent=forgotMode?'Feil PIN-kode.':'Feil brukernavn eller passord.';
+  }
+}
+function logout(){setLoggedIn(false);unlocked=false;showTab('reagenser');showLoginIfNeeded();}
+function renderLogin(){
+  var c=loginCfg();
+  document.getElementById('login-logout').style.display=c?'':'none';
+  document.getElementById('login-remove').style.display=c?'':'none';
+  document.getElementById('login-hint').textContent=c
+    ?'Innlogging er på. Brukernavn: '+c.user+'. Fyll inn nytt brukernavn og passord for å endre. Gjelder bare denne enheten.'
+    :'Ingen innlogging på denne enheten. Sett brukernavn og passord for å kreve innlogging når appen åpnes her. Gjelder bare denne enheten.';
+  document.getElementById('login-newuser').value=c?c.user:'';
+  ['login-new','login-new2'].forEach(function(id){document.getElementById(id).value='';});
+}
+async function saveLogin(){
+  var msg=document.getElementById('login-savemsg');
+  var say=function(t,ok){msg.textContent=t;msg.style.color=ok?'#2a7a52':'#c0392b';};
+  var u=document.getElementById('login-newuser').value.trim(),pw=document.getElementById('login-new').value,pw2=document.getElementById('login-new2').value;
+  if(!u){say('Brukernavn må fylles ut.');return;}
+  if(pw.length<6){say('Passordet må ha minst 6 tegn.');return;}
+  if(pw!==pw2){say('Passordene er ikke like.');return;}
+  lsSet(LOGIN_KEY,JSON.stringify({user:u,hash:await makePinHash(pw)}));
+  setLoggedIn(true);renderLogin();say('Lagret på denne enheten.',true);
+}
+function removeLogin(){
+  if(!confirm('Fjerne innloggingen på denne enheten? Da kan alle som har enheten, åpne appen.'))return;
+  lsSet(LOGIN_KEY,'');setLoggedIn(false);renderLogin();
+  var msg=document.getElementById('login-savemsg');msg.textContent='Innlogging fjernet.';msg.style.color='#2a7a52';
+}
 
 // ── Lager / reagenskatalog ──────────────────────────────────────────────────
 var KKEY = 'labreagenser_katalog_v1';
@@ -1083,6 +1186,7 @@ function bootApp(){
   if(sbActive())sbLoad(false);else{document.getElementById('sb-bar').style.display='none';document.getElementById('file-bar').style.display='flex';}
 }
 bootApp();
+showLoginIfNeeded();
 
 if('serviceWorker' in navigator){
   window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js');});
