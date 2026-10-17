@@ -119,15 +119,9 @@ input,button,textarea{font-family:inherit;}
         <span id="sb-label" style="font-size:12.5px;font-weight:600;color:#5c6b73;">Kobler til&#8230;</span>
         <button class="tbtn" onclick="sbLoad(true)" style="font-size:12px;padding:7px 11px;">&#8635; Last inn p&#229; nytt</button>
       </div>
-      <div id="file-bar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <span style="font-size:12px;color:#7c8a91;font-weight:600;">Delt fil:</span>
-        <button class="tbtn" onclick="openFromFile()">&#197;pne fra fil</button>
-        <button class="tbtn" onclick="saveToFile()">Lagre til fil</button>
-        <span id="file-indicator" style="display:none;font-size:12px;color:#2f6076;align-items:center;gap:5px;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-          <span style="width:8px;height:8px;border-radius:50%;background:#3a8a5f;display:inline-block;flex:none;"></span>
-          <span id="file-name"></span>
-        </span>
-        <input id="import-input" type="file" accept=".json,application/json" onchange="onImportFile(event)" style="display:none;">
+      <div id="local-bar" style="display:flex;align-items:center;gap:8px;">
+        <span style="width:9px;height:9px;border-radius:50%;background:#cdd6db;display:inline-block;flex:none;"></span>
+        <span style="font-size:12.5px;font-weight:600;color:#5c6b73;">Lagres bare p&#229; denne enheten</span>
       </div>
       <div style="flex:1;"></div>
       <input id="search-input" type="search" placeholder="S&#248;k navn / lot&#8230;" oninput="onSearch(this.value)" style="border:1px solid #c7d0d6;border-radius:8px;padding:9px 12px;font-size:13px;width:190px;outline:none;background:#fff;color:#1b2227;" onfocus="this.style.borderColor='#2f6076'" onblur="this.style.borderColor='#c7d0d6'">
@@ -296,7 +290,7 @@ input,button,textarea{font-family:inherit;}
       <div style="padding:20px 26px 24px;border-top:1px solid #e7ecef;display:flex;flex-direction:column;gap:16px;">
         <div>
           <div style="font-size:16px;font-weight:700;color:#16242c;margin-bottom:3px;">Database (Supabase)</div>
-          <div class="set-hint" style="margin-top:0;">Finnes i Supabase under Project Settings &rarr; API. La feltene st&#229; tomme for &#229; bruke fil i stedet.</div>
+          <div class="set-hint" style="margin-top:0;">Finnes i Supabase under Project Settings &rarr; API. St&#229;r feltene tomme, lagres alt bare p&#229; denne enheten.</div>
         </div>
         <div><label class="set-label" for="set-sburl">Project URL</label><input class="set-input" id="set-sburl" placeholder="https://xxxx.supabase.co" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
         <div><label class="set-label" for="set-sbkey">Anon public key</label><input class="set-input" id="set-sbkey" placeholder="eyJhbGciOi&#8230;" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
@@ -411,7 +405,7 @@ async function saveSbSettings(){
   settings.sbKey=document.getElementById('set-sbkey').value.trim();
   saveSettings();updateSbBar();
   var st=document.getElementById('set-sbstatus');
-  if(!sbActive()){st.style.color='#5c6b73';st.textContent='Ikke koblet til \u2013 bruker fil.';return;}
+  if(!sbActive()){st.style.color='#5c6b73';st.textContent='Ikke koblet til \u2013 lagres bare p\u00e5 denne enheten.';return;}
   st.style.color='#5c6b73';st.textContent='Kobler til\u2026';
   var ok=await sbLoad(false);
   st.style.color=ok?'#2a7a52':'#c0392b';
@@ -437,8 +431,6 @@ applyIdentity();fillSettingsForm();
 
 var SKEY = 'labreagenser_rows_v1';
 var rows = [];
-var fileName = '';
-var fileHandle = null;
 var hlTimer = null;
 var searchQuery = '';
 var collapsed = new Set();
@@ -669,52 +661,6 @@ function addRow(extra,highlight){
       }
     },3500);
   }
-}
-
-// Shared file
-function buildJson(){
-  var c=rows.map(function(r){var x=Object.assign({},r);delete x._new;return x;});
-  return JSON.stringify({app:'lab-reagenser',savedAt:new Date().toISOString(),rows:c,katalog:katalog},null,2);
-}
-function loadJson(txt,name){
-  var data;try{data=JSON.parse(txt);}catch(e){alert('Fant ikke gyldig data i filen.');return;}
-  var r=Array.isArray(data)?data:(data&&Array.isArray(data.rows)?data.rows:null);
-  if(!r){alert('Filen inneholder ingen reagensliste.');return;}
-  if(rows.length>0&&!confirm('Dette erstatter den lokale listen. Fortsette?'))return;
-  rows=r.map(function(x){var o={parentId:x.parentId||null,navn:x.navn||'',storage:x.storage==='rom'?'rom':'kjol',ventana:x.ventana||'',lot:x.lot||'',exp:x.exp||'',mDato:x.mDato||'',mSign:x.mSign||'',kDato:x.kDato||'',kSign:x.kSign||'',tDato:x.tDato||'',tSign:x.tSign||'',komm:x.komm||''};if(x.id)o.id=x.id;return emptyRow(o);});
-  if(data&&Array.isArray(data.katalog)){katalog=data.katalog.map(katItem);persistKatalog();}
-  persist();fileName=name||fileName;updateFileInd();renderTable();renderLager();
-}
-async function saveToFile(){
-  var json=buildJson();
-  try{
-    if(fileHandle&&fileHandle.createWritable){var w=await fileHandle.createWritable();await w.write(json);await w.close();return;}
-    if(window.showSaveFilePicker){
-      var hh=await window.showSaveFilePicker({suggestedName:'lab-reagenser.json',types:[{description:'JSON',accept:{'application/json':['.json']}}]});
-      fileHandle=hh;var w2=await hh.createWritable();await w2.write(json);await w2.close();
-      fileName=hh.name;updateFileInd();return;
-    }
-  }catch(e){if(e&&e.name==='AbortError')return;}
-  var blob=new Blob([json],{type:'application/json'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='lab-reagenser.json';a.click();
-  setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
-}
-async function openFromFile(){
-  try{
-    if(window.showOpenFilePicker){
-      var res=await window.showOpenFilePicker({types:[{description:'JSON',accept:{'application/json':['.json']}}]});
-      var hh=res[0];fileHandle=hh;var f=await hh.getFile();loadJson(await f.text(),hh.name);return;
-    }
-  }catch(e){if(e&&e.name==='AbortError')return;}
-  document.getElementById('import-input').click();
-}
-function onImportFile(e){
-  var f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;
-  var fr=new FileReader();fr.onload=function(){loadJson(fr.result,f.name);};fr.readAsText(f);
-}
-function updateFileInd(){
-  var el=document.getElementById('file-indicator'),nm=document.getElementById('file-name');
-  if(fileName){nm.textContent=fileName;el.style.display='inline-flex';}else{el.style.display='none';}
 }
 
 // CSV (Admin): Reagenser + Lager i én fil
@@ -1213,7 +1159,7 @@ window.addEventListener('resize',followAc);
 function updateSbBar(){
   var active=sbActive();
   document.getElementById('sb-bar').style.display=active?'flex':'none';
-  document.getElementById('file-bar').style.display=active?'none':'flex';
+  document.getElementById('local-bar').style.display=active?'none':'flex';
 }
 
 // ── Init ────────────────────────────────────────────────────────────────────
@@ -1222,7 +1168,7 @@ function bootApp(){
   try{var raw=localStorage.getItem(SKEY);rows=raw?JSON.parse(raw):[];if(!Array.isArray(rows))rows=[];}catch(e){rows=[];}
   autoCollapse();renderTable();
   updateSbBar();
-  if(sbActive())sbLoad(false);else{document.getElementById('sb-bar').style.display='none';document.getElementById('file-bar').style.display='flex';}
+  if(sbActive())sbLoad(false);
 }
 bootApp();
 showLoginIfNeeded();
