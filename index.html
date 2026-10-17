@@ -42,8 +42,8 @@ input,button,textarea{font-family:inherit;}
 .btn-del{background:transparent;border:none;color:#b9c2c8;font-size:16px;cursor:pointer;padding:8px 4px;border-radius:5px;line-height:1;}
 .btn-del:hover{background:#fbeceb;color:#c0392b;}
 #tabbar{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;justify-content:center;background:#fff;border-top:1px solid #dbe1e6;box-shadow:0 -1px 4px rgba(20,40,60,.06);padding-bottom:env(safe-area-inset-bottom);}
-.tab-btn{flex:1;max-width:160px;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;padding:8px 4px 9px;font-size:11.5px;font-weight:600;color:#7c8a91;cursor:pointer;}
-.tab-btn svg{width:24px;height:24px;}
+.tab-btn{flex:1;max-width:180px;display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:none;padding:10px 4px 12px;font-size:13px;font-weight:600;color:#7c8a91;cursor:pointer;}
+.tab-btn svg{width:28px;height:28px;}
 .tab-btn.active{color:#2f6076;}
 .set-label{display:block;font-size:12px;font-weight:700;color:#3b4a52;margin:0 0 5px;}
 .set-input{width:100%;border:1px solid #c7d0d6;border-radius:8px;padding:10px 12px;font-size:14px;color:#1b2227;background:#fff;outline:none;}
@@ -54,7 +54,7 @@ input,button,textarea{font-family:inherit;}
 </head>
 <body>
 
-<div id="app" style="min-height:100vh;padding:28px 22px 96px;">
+<div id="app" style="min-height:100vh;padding:28px 22px 110px;">
   <div id="page-reagenser">
   <div id="sheet" style="max-width:1320px;margin:0 auto;background:#fff;border:1px solid #dbe1e6;border-radius:10px;box-shadow:0 1px 3px rgba(20,40,60,.07);overflow:hidden;">
 
@@ -142,6 +142,18 @@ input,button,textarea{font-family:inherit;}
         </div>
         <div class="set-hint">Endringer lagres automatisk p&#229; denne enheten.</div>
       </div>
+      <div style="padding:20px 26px 24px;border-top:1px solid #e7ecef;display:flex;flex-direction:column;gap:16px;">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:#16242c;margin-bottom:3px;">Database (Supabase)</div>
+          <div class="set-hint" style="margin-top:0;">Finnes i Supabase under Project Settings &rarr; API. La feltene st&#229; tomme for &#229; bruke fil i stedet.</div>
+        </div>
+        <div><label class="set-label" for="set-sburl">Project URL</label><input class="set-input" id="set-sburl" placeholder="https://xxxx.supabase.co" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+        <div><label class="set-label" for="set-sbkey">Anon public key</label><input class="set-input" id="set-sbkey" placeholder="eyJhbGciOi&#8230;" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <button class="tbtn" style="color:#2f6076;border-color:#b9c7cf;" onclick="saveSbSettings()">Lagre og koble til</button>
+          <span id="set-sbstatus" style="font-size:12.5px;font-weight:600;color:#5c6b73;"></span>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -166,7 +178,9 @@ var DEFAULT_SETTINGS = {
   sykehus:      'Universitetssykehuset Nord-Norge',
   avdeling:     'Klinisk Patologi',
   seksjon:      '',
-  enhet:        'Histologisk lab'
+  enhet:        'Histologisk lab',
+  sbUrl:        '',
+  sbKey:        ''
 };
 var settings = loadSettings();
 
@@ -185,19 +199,33 @@ function applyIdentity(){
   document.getElementById('hdr-enhet').textContent=settings.enhet||'';
 }
 function fillSettingsForm(){
-  document.querySelectorAll('#page-oppsett .set-input').forEach(function(el){el.value=settings[el.dataset.key]||'';});
+  document.querySelectorAll('#page-oppsett .set-input[data-key]').forEach(function(el){el.value=settings[el.dataset.key]||'';});
+  document.getElementById('set-sburl').value=settings.sbUrl||'';
+  document.getElementById('set-sbkey').value=settings.sbKey||'';
 }
 var savedTimer=null;
 function flashSaved(){
   var el=document.getElementById('set-saved');el.style.opacity=1;
   clearTimeout(savedTimer);savedTimer=setTimeout(function(){el.style.opacity=0;},1200);
 }
-document.querySelectorAll('#page-oppsett .set-input').forEach(function(el){
+document.querySelectorAll('#page-oppsett .set-input[data-key]').forEach(function(el){
   el.addEventListener('input',function(){settings[el.dataset.key]=el.value;saveSettings();applyIdentity();flashSaved();});
 });
 function resetSettings(){
   if(!confirm('Tilbakestille oppsettet til standardverdiene?'))return;
-  settings=Object.assign({},DEFAULT_SETTINGS);saveSettings();fillSettingsForm();applyIdentity();flashSaved();
+  var sb={sbUrl:settings.sbUrl,sbKey:settings.sbKey};
+  settings=Object.assign({},DEFAULT_SETTINGS,sb);saveSettings();fillSettingsForm();applyIdentity();flashSaved();
+}
+async function saveSbSettings(){
+  settings.sbUrl=document.getElementById('set-sburl').value.trim();
+  settings.sbKey=document.getElementById('set-sbkey').value.trim();
+  saveSettings();updateSbBar();
+  var st=document.getElementById('set-sbstatus');
+  if(!sbActive()){st.style.color='#5c6b73';st.textContent='Ikke koblet til \u2013 bruker fil.';return;}
+  st.style.color='#5c6b73';st.textContent='Kobler til\u2026';
+  var ok=await sbLoad(false);
+  st.style.color=ok?'#2a7a52':'#c0392b';
+  st.textContent=ok?'Tilkoblet ('+rows.length+' rader)':'Kunne ikke koble til. Sjekk URL og n\u00f8kkel.';
 }
 
 // ── Faner ───────────────────────────────────────────────────────────────────
@@ -503,14 +531,12 @@ function autoCollapse(){
   });
 }
 
-// ── Supabase-konfigurasjon ───────────────────────────────────────────────────
+// URL og anon key legges inn under Oppsett (lagres i settings)
 // Lim inn dine verdier fra supabase.com → Project Settings → API
-var SB_URL = 'https://cvmnhpfykqlhmiwrxkds.supabase.co';
-var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2bW5ocGZ5a3FsaG1pd3J4a2RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3ODQ5OTYsImV4cCI6MjA5OTM2MDk5Nn0.Zf5CQYZApw81p0kYFnLyqIVBgPOkJ3ybaFE_3NqmTT4';
 // ────────────────────────────────────────────────────────────────────────────
 
 var sbSyncTimer={};
-function sbCreds(){return{url:SB_URL.trim().replace(/\/$/,''),key:SB_KEY.trim()};}
+function sbCreds(){return{url:String(settings.sbUrl||'').trim().replace(/\/$/,''),key:String(settings.sbKey||'').trim()};}
 function sbActive(){var c=sbCreds();return !!(c.url&&c.key);}
 function sbHdr(){var c=sbCreds();return{'apikey':c.key,'Authorization':'Bearer '+c.key,'Content-Type':'application/json','Prefer':'return=representation'};}
 
@@ -525,7 +551,7 @@ function setSbStatus(state,msg){
 
 async function sbLoad(showAlert){
   if(!sbActive())return;
-  setSbStatus('syncing','Laster inn&#8230;');
+  setSbStatus('syncing','Laster inn\u2026');
   var c=sbCreds();
   try{
     var r=await fetch(c.url+'/rest/v1/reagenser?select=*&order=updated_at.asc',{headers:sbHdr()});
@@ -535,16 +561,18 @@ async function sbLoad(showAlert){
     persist();autoCollapse();renderTable();
     setSbStatus('ok','Synkronisert');
     if(showAlert)setSbStatus('ok','Oppdatert ('+rows.length+' rader)');
+    return true;
   }catch(e){
     setSbStatus('error','Tilkoblingsfeil');
     if(showAlert)alert('Kunne ikke laste fra Supabase: '+(e.message||e));
+    return false;
   }
 }
 
 async function sbUpsert(row){
   if(!sbActive())return;
   var c=sbCreds(),body=JSON.stringify([{id:row.id,parent_id:row.parentId||null,navn:row.navn,storage:row.storage,ventana:row.ventana,lot:row.lot,exp:row.exp,mDato:row.mDato,mSign:row.mSign,kDato:row.kDato,kSign:row.kSign,tDato:row.tDato,tSign:row.tSign,komm:row.komm,updated_at:new Date().toISOString()}]);
-  setSbStatus('syncing','Lagrer&#8230;');
+  setSbStatus('syncing','Lagrer\u2026');
   try{
     var r=await fetch(c.url+'/rest/v1/reagenser',{method:'POST',headers:Object.assign({},sbHdr(),{'Prefer':'resolution=merge-duplicates,return=minimal'}),body:body});
     if(!r.ok){var et=await r.text().catch(function(){return'';});console.error('sbUpsert HTTP '+r.status,et);throw new Error('HTTP '+r.status+(et?' – '+et.slice(0,120):''));}
@@ -555,7 +583,7 @@ async function sbUpsert(row){
 async function sbDelete(id){
   if(!sbActive())return;
   var c=sbCreds();
-  setSbStatus('syncing','Sletter&#8230;');
+  setSbStatus('syncing','Sletter\u2026');
   try{
     var r=await fetch(c.url+'/rest/v1/reagenser?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:sbHdr()});
     if(!r.ok){var et=await r.text().catch(function(){return'';});throw new Error('HTTP '+r.status+(et?' – '+et.slice(0,120):''));}
