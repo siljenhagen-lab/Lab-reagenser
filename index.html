@@ -657,7 +657,9 @@ function addSubRow(parentId,count){
   var n=Math.floor(Number(count))||1;
   if(n<1)n=1;
   if(n>MAX_ADD){alert('Du kan legge til maks '+MAX_ADD+' glass om gangen.');return;}
-  collapsed.delete(parentId);addRows({parentId:parentId},n,true);
+  // Nye glass får samme lotnummer og forfallsdato som hovedraden
+  var parent=rows.find(function(r){return r.id===parentId;})||{};
+  collapsed.delete(parentId);addRows({parentId:parentId,lot:parent.lot||'',exp:parent.exp||''},n,true);
 }
 function addRow(extra,highlight){addRows(extra,1,highlight);}
 function addRows(extra,count,highlight){
