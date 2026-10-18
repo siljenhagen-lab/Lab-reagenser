@@ -652,11 +652,12 @@ document.getElementById('tbody').addEventListener('click',function(e){
 });
 
 function addEmptyRow(){addRow({},false);}
-var MAX_ADD=20;
+var MAX_ADD=100,CONFIRM_ADD=20;
 function addSubRow(parentId,count){
   var n=Math.floor(Number(count))||1;
   if(n<1)n=1;
   if(n>MAX_ADD){alert('Du kan legge til maks '+MAX_ADD+' glass om gangen.');return;}
+  if(n>CONFIRM_ADD&&!confirm('Legge til '+n+' glass?'))return;
   // Nye glass får samme lotnummer og forfallsdato som hovedraden
   var parent=rows.find(function(r){return r.id===parentId;})||{};
   collapsed.delete(parentId);addRows({parentId:parentId,lot:parent.lot||'',exp:parent.exp||''},n,true);
@@ -668,7 +669,7 @@ function addRows(extra,count,highlight){
     var row=emptyRow(Object.assign({_new:!!highlight},extra||{}));
     rows.push(row);added.push(row);
   }
-  persist();added.forEach(sbUpsert);
+  persist();sbUpsert(added);
   renderTable();
   if(highlight){
     clearTimeout(hlTimer);
@@ -805,9 +806,11 @@ async function sbLoad(showAlert){
   }
 }
 
-async function sbUpsert(row){
+// Tar én rad eller en liste med rader (lagres i én forespørsel)
+async function sbUpsert(rowOrRows){
   if(!sbActive())return;
-  var c=sbCreds(),body=JSON.stringify([{id:row.id,parent_id:row.parentId||null,navn:row.navn,storage:row.storage,ventana:row.ventana,lot:row.lot,exp:row.exp,mDato:row.mDato,mSign:row.mSign,kDato:row.kDato,kSign:row.kSign,tDato:row.tDato,tSign:row.tSign,komm:row.komm,updated_at:new Date().toISOString()}]);
+  var list=Array.isArray(rowOrRows)?rowOrRows:[rowOrRows],now=new Date().toISOString();
+  var c=sbCreds(),body=JSON.stringify(list.map(function(row){return{id:row.id,parent_id:row.parentId||null,navn:row.navn,storage:row.storage,ventana:row.ventana,lot:row.lot,exp:row.exp,mDato:row.mDato,mSign:row.mSign,kDato:row.kDato,kSign:row.kSign,tDato:row.tDato,tSign:row.tSign,komm:row.komm,updated_at:now};}));
   setSbStatus('syncing','Lagrer\u2026');
   try{
     var r=await fetch(c.url+'/rest/v1/reagenser',{method:'POST',headers:Object.assign({},sbHdr(),{'Prefer':'resolution=merge-duplicates,return=minimal'}),body:body});
