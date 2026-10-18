@@ -62,6 +62,9 @@ input,button,textarea{font-family:inherit;}
 .tbtn:hover{background:#f4f7f8;}
 .btn-del{background:transparent;border:none;color:#b9c2c8;font-size:16px;cursor:pointer;padding:8px 4px;border-radius:5px;line-height:1;}
 .btn-del:hover{background:#fbeceb;color:#c0392b;}
+.add-count{width:38px;border:1px solid #c7d0d6;border-radius:5px;padding:3px 2px;font:inherit;font-size:13px;text-align:center;color:#1b2227;background:#fff;-moz-appearance:textfield;}
+.add-count::-webkit-outer-spin-button,.add-count::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+.add-count:focus{border-color:#2f6076;outline:none;}
 #tabbar{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;justify-content:center;background:#fff;border-top:1px solid #dbe1e6;box-shadow:0 -1px 4px rgba(20,40,60,.06);padding-bottom:env(safe-area-inset-bottom);}
 .tab-btn{flex:1;max-width:180px;display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:none;padding:10px 4px 12px;font-size:13px;font-weight:600;color:#7c8a91;cursor:pointer;}
 .tab-btn svg{width:28px;height:28px;}
@@ -83,6 +86,7 @@ input,button,textarea{font-family:inherit;}
   [data-collapse]{font-size:12px!important;padding:5px 8px!important;}
   [data-addchild]{font-size:18px!important;padding:4px 11px!important;}
   .ac-item{padding:12px 14px;font-size:15px;}
+  .add-count{width:44px;font-size:15px;padding:6px 2px;}
   #search-input,#lager-search{font-size:15px!important;padding:11px 12px!important;}
 }
 #ac-list{position:fixed;z-index:100;display:none;background:#fff;border:1px solid #c7d0d6;border-radius:8px;box-shadow:0 6px 18px rgba(20,40,60,.16);max-height:280px;overflow-y:auto;padding:4px 0;}
@@ -146,7 +150,7 @@ input,button,textarea{font-family:inherit;}
             <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;min-width:136px;">Kontrollert<br><span style="font-size:9.5px;font-style:italic;text-transform:none;font-weight:400;letter-spacing:0;color:#8a979e;">dato &middot; sign.</span></th>
             <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;min-width:136px;">Tatt i bruk<br><span style="font-size:9.5px;font-style:italic;text-transform:none;font-weight:400;letter-spacing:0;color:#8a979e;">dato &middot; sign.</span></th>
             <th style="padding:10px 8px;border-bottom:2px solid #cdd6db;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#5c6b73;font-weight:700;min-width:130px;">Kommentar</th>
-            <th class="noprint" style="padding:10px 8px;border-bottom:2px solid #cdd6db;width:46px;"></th>
+            <th class="noprint" style="padding:10px 8px;border-bottom:2px solid #cdd6db;width:84px;"></th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -545,7 +549,10 @@ function rowHtml(row,i,childCount,isCollapsed) {
     +'<td class="noprint" style="padding:5px 4px;border-bottom:1px solid #eef2f4;vertical-align:top;text-align:center;">'
       +'<div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:3px;">'
         +'<button class="btn-del" data-del="1" title="Slett rad">&#10005;</button>'
-        +'<button data-addchild="'+h(row.id)+'" title="Legg til underrad (glass)" style="background:transparent;border:1px solid #b4c7d1;color:#2f6076;font-size:14px;font-weight:700;cursor:pointer;padding:1px 7px;border-radius:5px;line-height:1.5;">+</button>'
+        +'<div style="display:flex;align-items:center;gap:3px;">'
+          +'<button data-addchild="'+h(row.id)+'" title="Legg til glass (antall i feltet ved siden av)" style="background:transparent;border:1px solid #b4c7d1;color:#2f6076;font-size:14px;font-weight:700;cursor:pointer;padding:1px 7px;border-radius:5px;line-height:1.5;">+</button>'
+          +'<input class="add-count" type="number" inputmode="numeric" min="1" max="'+MAX_ADD+'" value="1" title="Antall glass" aria-label="Antall glass">'
+        +'</div>'
       +'</div>'
     +'</td>'
     +'</tr>';
@@ -625,7 +632,8 @@ document.getElementById('tbody').addEventListener('click',function(e){
     renderTable();return;
   }
   if(e.target.dataset.addchild){
-    addSubRow(e.target.dataset.addchild);
+    var cnt=tr.querySelector('.add-count');
+    addSubRow(e.target.dataset.addchild,cnt?cnt.value:1);
   } else if(e.target.dataset.s){
     row.storage=e.target.dataset.s;
     persist();debounceSbUpsert(row);
@@ -644,21 +652,33 @@ document.getElementById('tbody').addEventListener('click',function(e){
 });
 
 function addEmptyRow(){addRow({},false);}
-function addSubRow(parentId){collapsed.delete(parentId);addRow({parentId:parentId},true);}
-function addRow(extra,highlight){
-  var row=emptyRow(Object.assign({_new:!!highlight},extra||{}));
-  rows.push(row);
-  persist();sbUpsert(row);
+var MAX_ADD=20;
+function addSubRow(parentId,count){
+  var n=Math.floor(Number(count))||1;
+  if(n<1)n=1;
+  if(n>MAX_ADD){alert('Du kan legge til maks '+MAX_ADD+' glass om gangen.');return;}
+  collapsed.delete(parentId);addRows({parentId:parentId},n,true);
+}
+function addRow(extra,highlight){addRows(extra,1,highlight);}
+function addRows(extra,count,highlight){
+  var added=[];
+  for(var i=0;i<count;i++){
+    var row=emptyRow(Object.assign({_new:!!highlight},extra||{}));
+    rows.push(row);added.push(row);
+  }
+  persist();added.forEach(sbUpsert);
   renderTable();
   if(highlight){
     clearTimeout(hlTimer);
     hlTimer=setTimeout(function(){
-      row._new=false;
-      var tr=document.querySelector('tr[data-id="'+row.id+'"]');
-      if(tr){
-        if(row.parentId){tr.style.background=expSt(row.exp).tint||'#f2f8fb';}
-        else{tr.style.background=rowBg(row,rows.filter(function(r){return !r.parentId;}).indexOf(row));}
-      }
+      added.forEach(function(row){
+        row._new=false;
+        var tr=document.querySelector('tr[data-id="'+row.id+'"]');
+        if(tr){
+          if(row.parentId){tr.style.background=expSt(row.exp).tint||'#f2f8fb';}
+          else{tr.style.background=rowBg(row,rows.filter(function(r){return !r.parentId;}).indexOf(row));}
+        }
+      });
     },3500);
   }
 }
@@ -1139,6 +1159,9 @@ tb.addEventListener('focusin',function(e){if(isNavn(e.target))showAc(e.target);}
 tb.addEventListener('input',function(e){if(isNavn(e.target)){showAc(e.target);e.target.classList.remove('navn-warn');}});
 tb.addEventListener('focusout',function(e){if(isNavn(e.target)){markNavn(e.target);setTimeout(function(){if(document.activeElement!==acInput)hideAc();},150);}});
 tb.addEventListener('keydown',function(e){
+  if(e.key==='Enter'&&e.target.classList.contains('add-count')){
+    e.preventDefault();var b=e.target.parentNode.querySelector('[data-addchild]');if(b)b.click();return;
+  }
   if(!isNavn(e.target)||document.getElementById('ac-list').style.display!=='block')return;
   if(e.key==='ArrowDown'||e.key==='ArrowUp'){
     e.preventDefault();

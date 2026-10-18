@@ -1,4 +1,4 @@
-const CACHE = 'labreagenser-v10';
+const CACHE = 'labreagenser-v11';
 
 const APP_SHELL = [
   './',
