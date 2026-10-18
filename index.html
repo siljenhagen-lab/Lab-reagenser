@@ -754,16 +754,13 @@ async function deleteUsed(){
 }
 async function sbDeleteMany(ids){
   if(!sbActive()||!ids.length)return;
-  var c=sbCreds();
+  var t=Date.now();
   setSbStatus('syncing','Sletter\u2026');
   try{
-    for(var i=0;i<ids.length;i+=100){
-      var chunk=ids.slice(i,i+100).map(function(id){return'"'+String(id).replace(/"/g,'')+'"';}).join(',');
-      var r=await fetch(c.url+'/rest/v1/reagenser?id=in.('+encodeURIComponent(chunk)+')',{method:'DELETE',headers:sbHdr()});
-      if(!r.ok){var et=await r.text().catch(function(){return'';});throw new Error('HTTP '+r.status+(et?' – '+et.slice(0,120):''));}
-    }
-    setSbStatus('ok','Synkronisert');
-  }catch(e){console.error('sbDeleteMany feil:',e);setSbStatus('error','Lagringsfeil ('+e.message+')');alert('Radene ble slettet her, men ikke i databasen: '+e.message);}
+    await rawDeleteRows(ids);
+    clearPending('del',ids,t);clearPending('up',ids,t);
+    afterSync();
+  }catch(e){console.error('sbDeleteMany feil:',e);markPending('del',ids);syncFailed(e);}
 }
 
 function onSearch(v){searchQuery=v.trim();renderTable();}
@@ -778,6 +775,100 @@ function autoCollapse(){
 // ────────────────────────────────────────────────────────────────────────────
 
 var sbSyncTimer={};
+
+// ── Ventende endringer ──────────────────────────────────────────────────────
+// Endringer som ikke kom fram til databasen (f.eks. uten nett), huskes her og
+// sendes senere. Så lenge noe venter, hentes ikke data fra databasen, slik at
+// lokale endringer ikke blir overskrevet.
+var PENDING_KEY='labreagenser_pending_v1';
+var pending=(function(){
+  var p={up:{},del:{},kup:{},kdel:{}};
+  try{var raw=localStorage.getItem(PENDING_KEY);if(raw){var o=JSON.parse(raw);['up','del','kup','kdel'].forEach(function(k){if(o&&o[k])p[k]=o[k];});}}catch(e){}
+  return p;
+})();
+function savePending(){try{localStorage.setItem(PENDING_KEY,JSON.stringify(pending));}catch(e){}}
+function pendingCount(){return Object.keys(pending.up).length+Object.keys(pending.del).length+Object.keys(pending.kup).length+Object.keys(pending.kdel).length;}
+function markPending(kind,ids){
+  var t=Date.now();
+  ids.forEach(function(id){
+    pending[kind][id]=t;
+    if(kind==='del')delete pending.up[id];
+    if(kind==='kdel')delete pending.kup[id];
+  });
+  savePending();
+}
+// Fjerner bare det som ble markert før sendingen startet (t), så en ny
+// endring som feilet underveis ikke blir glemt.
+function clearPending(kind,ids,t){
+  ids.forEach(function(id){if(pending[kind][id]&&pending[kind][id]<=t)delete pending[kind][id];});
+  savePending();
+}
+// Statuslinja viser registreringer; feil i lagerlista vises på Lager-fanen
+function showPendingStatus(){
+  var n=Object.keys(pending.up).length+Object.keys(pending.del).length;
+  if(n)setSbStatus('syncing',n+(n>1?' endringer venter':' endring venter')+' p\u00e5 nett');
+  else setSbStatus('ok','Synkronisert');
+}
+function syncFailed(e){
+  if(e&&e.http)setSbStatus('error','Lagringsfeil ('+e.message+') \u2013 pr\u00f8ver igjen');
+  else showPendingStatus();
+}
+function afterSync(){
+  if(pendingCount())flushPending();else setSbStatus('ok','Synkronisert');
+}
+async function sbFetchOk(url,opts){
+  var r=await fetch(url,opts);
+  if(!r.ok){
+    var et=await r.text().catch(function(){return'';});
+    var err=new Error('HTTP '+r.status+(et?' \u2013 '+et.slice(0,120):''));err.http=true;throw err;
+  }
+  return r;
+}
+function dbRow(row,now){return{id:row.id,parent_id:row.parentId||null,navn:row.navn,storage:row.storage,ventana:row.ventana,lot:row.lot,exp:row.exp,mDato:row.mDato,mSign:row.mSign,kDato:row.kDato,kSign:row.kSign,tDato:row.tDato,tSign:row.tSign,komm:row.komm,updated_at:now};}
+async function rawUpsertRows(list){
+  var c=sbCreds(),now=new Date().toISOString();
+  for(var i=0;i<list.length;i+=200){
+    await sbFetchOk(c.url+'/rest/v1/reagenser',{method:'POST',headers:Object.assign({},sbHdr(),{'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(list.slice(i,i+200).map(function(r){return dbRow(r,now);}))});
+  }
+}
+function inList(ids){return encodeURIComponent(ids.map(function(id){return'"'+String(id).replace(/"/g,'')+'"';}).join(','));}
+async function rawDeleteRows(ids){
+  var c=sbCreds();
+  for(var i=0;i<ids.length;i+=100){
+    await sbFetchOk(c.url+'/rest/v1/reagenser?id=in.('+inList(ids.slice(i,i+100))+')',{method:'DELETE',headers:sbHdr()});
+  }
+}
+// Sender alt som venter. Returnerer true når registreringene er i databasen.
+var flushing=null;
+function flushPending(){
+  if(flushing)return flushing;
+  flushing=(async function(){
+    try{
+      if(!sbActive())return true;
+      var ok=true,t=Date.now();
+      var upIds=Object.keys(pending.up);
+      if(upIds.length){
+        try{
+          var list=rows.filter(function(r){return pending.up[r.id];});
+          if(list.length)await rawUpsertRows(list);
+          clearPending('up',upIds,t);
+        }catch(e){ok=false;syncFailed(e);}
+      }
+      var delIds=Object.keys(pending.del);
+      if(ok&&delIds.length){
+        try{await rawDeleteRows(delIds);clearPending('del',delIds,t);}
+        catch(e){ok=false;syncFailed(e);}
+      }
+      await flushKatalog(t);
+      if(ok){if(pendingCount())showPendingStatus();else setSbStatus('ok','Synkronisert');}
+      return ok;
+    }finally{flushing=null;}
+  })();
+  return flushing;
+}
+window.addEventListener('online',function(){if(sbActive()&&pendingCount())sbLoad(false);});
+setInterval(function(){if(sbActive()&&pendingCount())flushPending();},30000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden&&sbActive()&&pendingCount())flushPending();});
 function sbCreds(){return{url:String(settings.sbUrl||'').trim().replace(/\/$/,''),key:String(settings.sbKey||'').trim()};}
 function sbActive(){var c=sbCreds();return !!(c.url&&c.key);}
 function sbHdr(){var c=sbCreds();return{'apikey':c.key,'Authorization':'Bearer '+c.key,'Content-Type':'application/json','Prefer':'return=representation'};}
@@ -793,6 +884,15 @@ function setSbStatus(state,msg){
 
 async function sbLoad(showAlert){
   if(!sbActive())return;
+  if(pendingCount()){
+    setSbStatus('syncing','Sender ventende endringer\u2026');
+    var sent=await flushPending();
+    if(!sent||Object.keys(pending.up).length||Object.keys(pending.del).length){
+      showPendingStatus();
+      if(showAlert)alert('Ingen kontakt med databasen. Endringene dine er lagret p\u00e5 enheten og sendes n\u00e5r nettet er tilbake.');
+      return false;
+    }
+  }
   setSbStatus('syncing','Laster inn\u2026');
   var c=sbCreds();
   try{
@@ -803,6 +903,7 @@ async function sbLoad(showAlert){
     persist();autoCollapse();renderTable();
     await sbLoadKatalog();
     await sbLoadPin();
+    if(pendingCount()){showPendingStatus();return true;}
     setSbStatus('ok','Synkronisert');
     if(showAlert)setSbStatus('ok','Oppdatert ('+rows.length+' rader)');
     return true;
@@ -816,26 +917,16 @@ async function sbLoad(showAlert){
 // Tar én rad eller en liste med rader (lagres i én forespørsel)
 async function sbUpsert(rowOrRows){
   if(!sbActive())return;
-  var list=Array.isArray(rowOrRows)?rowOrRows:[rowOrRows],now=new Date().toISOString();
-  var c=sbCreds(),body=JSON.stringify(list.map(function(row){return{id:row.id,parent_id:row.parentId||null,navn:row.navn,storage:row.storage,ventana:row.ventana,lot:row.lot,exp:row.exp,mDato:row.mDato,mSign:row.mSign,kDato:row.kDato,kSign:row.kSign,tDato:row.tDato,tSign:row.tSign,komm:row.komm,updated_at:now};}));
+  var list=Array.isArray(rowOrRows)?rowOrRows:[rowOrRows],ids=list.map(function(r){return r.id;}),t=Date.now();
   setSbStatus('syncing','Lagrer\u2026');
   try{
-    var r=await fetch(c.url+'/rest/v1/reagenser',{method:'POST',headers:Object.assign({},sbHdr(),{'Prefer':'resolution=merge-duplicates,return=minimal'}),body:body});
-    if(!r.ok){var et=await r.text().catch(function(){return'';});console.error('sbUpsert HTTP '+r.status,et);throw new Error('HTTP '+r.status+(et?' – '+et.slice(0,120):''));}
-    setSbStatus('ok','Synkronisert');
-  }catch(e){console.error('sbUpsert feil:',e);setSbStatus('error','Lagringsfeil ('+e.message+')');}
+    await rawUpsertRows(list);
+    clearPending('up',ids,t);
+    afterSync();
+  }catch(e){console.error('sbUpsert feil:',e);markPending('up',ids);syncFailed(e);}
 }
 
-async function sbDelete(id){
-  if(!sbActive())return;
-  var c=sbCreds();
-  setSbStatus('syncing','Sletter\u2026');
-  try{
-    var r=await fetch(c.url+'/rest/v1/reagenser?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:sbHdr()});
-    if(!r.ok){var et=await r.text().catch(function(){return'';});throw new Error('HTTP '+r.status+(et?' – '+et.slice(0,120):''));}
-    setSbStatus('ok','Synkronisert');
-  }catch(e){console.error('sbDelete feil:',e);setSbStatus('error','Lagringsfeil ('+e.message+')');}
-}
+async function sbDelete(id){return sbDeleteMany([id]);}
 
 function debounceSbUpsert(row){
   clearTimeout(sbSyncTimer[row.id]);
@@ -1017,24 +1108,38 @@ async function sbKatFetch(path,opts){
 }
 async function sbLoadKatalog(){
   if(!sbActive())return;
+  // Lagerlista overskrives ikke mens lokale endringer i den venter
+  if(Object.keys(pending.kup).length||Object.keys(pending.kdel).length)return;
   try{
     var data=await (await sbKatFetch('?select=*&order=tittel.asc')).json();
-    if(!data.length&&katalog.length){katalog.forEach(sbUpsertKat);setKatStatus('');return;}
+    if(!data.length&&katalog.length){markPending('kup',katalog.map(function(k){return k.id;}));flushPending();setKatStatus('');return;}
     katalog=data.map(katItem);katSort();persistKatalog();setKatStatus('');
     renderTable();renderLager();
   }catch(e){setKatStatus(e.message);}
 }
+async function rawUpsertKat(items){
+  var now=new Date().toISOString();
+  await sbKatFetch('',{method:'POST',headers:Object.assign({},sbHdr(),{'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(items.map(function(k){return{id:k.id,tittel:k.tittel,leverandor:k.leverandor,updated_at:now};}))});
+}
 async function sbUpsertKat(item){
   if(!sbActive())return;
-  try{
-    await sbKatFetch('',{method:'POST',headers:Object.assign({},sbHdr(),{'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify([{id:item.id,tittel:item.tittel,leverandor:item.leverandor,updated_at:new Date().toISOString()}])});
-    setKatStatus('');
-  }catch(e){setKatStatus(e.message);}
+  var t=Date.now();
+  try{await rawUpsertKat([item]);clearPending('kup',[item.id],t);setKatStatus('');afterSync();}
+  catch(e){markPending('kup',[item.id]);setKatStatus(e.message);showPendingStatus();}
 }
 async function sbDeleteKat(id){
   if(!sbActive())return;
-  try{await sbKatFetch('?id=eq.'+encodeURIComponent(id),{method:'DELETE'});setKatStatus('');}
-  catch(e){setKatStatus(e.message);}
+  var t=Date.now();
+  try{await sbKatFetch('?id=in.('+inList([id])+')',{method:'DELETE'});clearPending('kdel',[id],t);clearPending('kup',[id],t);setKatStatus('');afterSync();}
+  catch(e){markPending('kdel',[id]);setKatStatus(e.message);showPendingStatus();}
+}
+async function flushKatalog(t){
+  var up=Object.keys(pending.kup),del=Object.keys(pending.kdel);
+  try{
+    if(up.length){var items=katalog.filter(function(k){return pending.kup[k.id];});if(items.length)await rawUpsertKat(items);clearPending('kup',up,t);}
+    if(del.length){await sbKatFetch('?id=in.('+inList(del)+')',{method:'DELETE'});clearPending('kdel',del,t);}
+    if(up.length||del.length)setKatStatus('');
+  }catch(e){setKatStatus(e.message);}
 }
 
 // Beholdning: alle enheter (rad + underrader) uten «tatt i bruk»-dato, gruppert på tittel
