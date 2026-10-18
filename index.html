@@ -576,7 +576,12 @@ function subRowHtml(row,ci) {
     +'<td style="padding:5px 6px;border-bottom:1px solid #e8f0f4;vertical-align:top;">'
       +'<input class="date-input" type="date" data-f="exp" value="'+h(row.exp)+'">'
     +'</td>'
-    +'<td style="border-bottom:1px solid #e8f0f4;"></td>'
+    +'<td style="padding:5px 6px;border-bottom:1px solid #e8f0f4;vertical-align:top;">'
+      +'<div style="display:flex;flex-direction:column;gap:4px;">'
+        +'<input class="date-input" type="date" data-f="mDato" value="'+h(row.mDato)+'">'
+        +'<input class="sign-input" type="text" data-f="mSign" value="'+h(row.mSign)+'" placeholder="sign.">'
+      +'</div>'
+    +'</td>'
     +'<td style="padding:5px 6px;border-bottom:1px solid #e8f0f4;vertical-align:top;">'
       +'<div style="display:flex;flex-direction:column;gap:4px;">'
         +'<input class="date-input" type="date" data-f="kDato" value="'+h(row.kDato)+'">'
@@ -658,9 +663,11 @@ function addSubRow(parentId,count){
   if(n<1)n=1;
   if(n>MAX_ADD){alert('Du kan legge til maks '+MAX_ADD+' glass om gangen.');return;}
   if(n>CONFIRM_ADD&&!confirm('Legge til '+n+' glass?'))return;
-  // Nye glass får samme lotnummer og forfallsdato som hovedraden
+  // Nye glass får lotnummer, forfallsdato og mottak (dato + sign.) fra hovedraden.
+  // Kontrollert og tatt i bruk fylles ut per glass.
   var parent=rows.find(function(r){return r.id===parentId;})||{};
-  collapsed.delete(parentId);addRows({parentId:parentId,lot:parent.lot||'',exp:parent.exp||''},n,true);
+  collapsed.delete(parentId);
+  addRows({parentId:parentId,lot:parent.lot||'',exp:parent.exp||'',mDato:parent.mDato||'',mSign:parent.mSign||''},n,true);
 }
 function addRow(extra,highlight){addRows(extra,1,highlight);}
 function addRows(extra,count,highlight){
