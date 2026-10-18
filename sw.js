@@ -1,10 +1,12 @@
-const CACHE = 'labreagenser-v4';
+const CACHE = 'labreagenser-v13';
 
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
   './icon.svg',
+  './icon-180.png',
+  './icon-192.png',
 ];
 
 self.addEventListener('install', e => {

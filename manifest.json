@@ -1,7 +1,7 @@
 {
-  "name": "Reagenser UNN",
-  "short_name": "Reagenser UNN",
-  "description": "Reagens registreringer – UNN Klinisk Patologi",
+  "name": "Lab reagenser",
+  "short_name": "Lab reagenser",
+  "description": "Registrering og lageroversikt for reagenser i laboratoriet",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -11,10 +11,28 @@
   "lang": "nb",
   "icons": [
     {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
       "src": "./icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }
